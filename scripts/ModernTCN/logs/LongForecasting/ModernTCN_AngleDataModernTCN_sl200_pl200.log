@@ -1,0 +1,131 @@
+Args in experiment:
+Namespace(random_seed=2021, is_training=1, model_id='AngleDataModernTCN_sl200_pl200', model='ModernTCN', data='angle', root_path='../../dataset/', data_path='data.csv', features='M', target='OT', freq='s', checkpoints='./checkpoints/', use_augmentation=True, jitter_sigma=0.08, scale_alpha=0.1, use_smoothing=True, downsample_rate=10, seq_len=200, label_len=48, pred_len=200, dlinear_xyz_use_pos_encoding=False, dlinear_xyz_use_arima_trend=False, dlinear_xyz_use_arima_trend_comp=False, dlinear_xyz_use_fft_promote_feature=False, dlinear_xyz_use_fft_plus_feature=False, dlinear_xyz_use_ifft_plus=False, dlinear_xyz_use_merge=False, dlinear_xyz_use_broader_individual=False, dlinear_xyz_use_mix_linear=False, dlinear_xyz_use_autoformer=False, dlinear_xyz_use_full_autoformer=False, dlinear_xyz_top_k_fft=64, dlinear_xyz_top_k_corr=4, dlinear_xyz_layers_cnt=1, dlinear_xyz_layers_cnt_encoder=1, dlinear_xyz_arima_order='(2,1,0)', dlinear_xyz_arima_moving_avg=5, dlinear_xyz_merge_rate_init=0.3, dlinear_xyz_merge_between_init=1.0, fc_dropout=0.05, head_dropout=0.1, patch_len=16, stride=8, padding_patch='end', revin=1, affine=0, subtract_last=0, decomposition=0, kernel_size=25, individual=0, arima_order_p=2, arima_order_d=0, arima_order_q=1, arima_maxiter=200, arima_enforce_stationarity=False, arima_enforce_invertibility=False, arima_fallback_window=5, prophet_changepoint_prior_scale=0.05, prophet_seasonality_mode='additive', prophet_growth='linear', prophet_n_changepoints=25, prophet_yearly_seasonality='auto', prophet_weekly_seasonality='auto', prophet_daily_seasonality='auto', prophet_fallback_window=5, embed_type=0, enc_in=3, dec_in=3, c_out=3, d_model=512, n_heads=8, e_layers=2, d_layers=1, d_ff=2048, moving_avg=25, factor=1, distil=True, dropout=0.2, embed='timeF', activation='gelu', output_attention=False, do_predict=False, stem_ratio=6, downsample_ratio=2, ffn_ratio=2, patch_size=16, patch_stride=8, num_blocks=[1, 1, 1, 1], large_size=[31, 29, 27, 13], small_size=[5, 5, 5, 5], dims=[128, 128, 128, 128], small_kernel_merged=False, use_multi_scale=1, num_workers=10, itr=1, train_epochs=15, batch_size=16, patience=5, learning_rate=0.0003, des='Exp', loss='mse', lradj='type3', pct_start=0.3, use_amp=False, rec_lambda=1.0, auxi_lambda=0.0, use_gpu=False, gpu=0, use_multi_gpu=False, devices='0,1,2,3', test_flop=False)
+Use CPU
+>>>>>>>start training : AngleDataModernTCN_sl200_pl200_ModernTCN_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0>>>>>>>>>>>>>>>>>>>>>>>>>>
+已应用use_augmentation
+已应用use_smoothing
+已保存可视化图像到: ./smoothing_visualization/before_smoothing.png
+降采样rate：10
+已保存可视化图像到: ./smoothing_visualization/after_smoothing.png
+已生成平滑前后对比图。平滑处理将在每个训练样本上独立应用。
+当前样本类型: train, 该类型样本数量: 3801
+已应用use_smoothing
+当前样本类型: val, 该类型样本数量: 1001
+已应用use_smoothing
+当前样本类型: test, 该类型样本数量: 401
+train_epoch: 15
+	iters: 100, epoch: 1 | loss: 0.0746339
+	speed: 1.1508s/iter; left time: 3977.1514s
+	iters: 200, epoch: 1 | loss: 0.0671641
+	speed: 1.0270s/iter; left time: 3446.5486s
+Epoch: 1 cost time: 306.2292721271515
+Epoch: 1 | Train Loss: 0.0871275 Vali Loss: 0.0168962 Test Loss: 0.0190211
+Validation loss decreased (inf --> 0.016896).  Saving model ...
+Updating learning rate to 0.0003
+train_epoch: 15
+	iters: 100, epoch: 2 | loss: 0.0455010
+	speed: 3.2901s/iter; left time: 10590.7191s
+	iters: 200, epoch: 2 | loss: 0.0284975
+	speed: 1.0161s/iter; left time: 3169.1026s
+Epoch: 2 cost time: 303.4689130783081
+Epoch: 2 | Train Loss: 0.0465957 Vali Loss: 0.0172324 Test Loss: 0.0242223
+EarlyStopping counter: 1 out of 5
+Updating learning rate to 0.0003
+train_epoch: 15
+	iters: 100, epoch: 3 | loss: 0.0383571
+	speed: 3.2758s/iter; left time: 9768.3501s
+	iters: 200, epoch: 3 | loss: 0.0235737
+	speed: 5.1767s/iter; left time: 14919.1458s
+Epoch: 3 cost time: 718.6855869293213
+Epoch: 3 | Train Loss: 0.0355902 Vali Loss: 0.0173207 Test Loss: 0.0296939
+EarlyStopping counter: 2 out of 5
+Updating learning rate to 0.0003
+train_epoch: 15
+	iters: 100, epoch: 4 | loss: 0.0341442
+	speed: 3.2950s/iter; left time: 9044.7739s
+	iters: 200, epoch: 4 | loss: 0.0291122
+	speed: 1.0186s/iter; left time: 2694.2615s
+Epoch: 4 cost time: 321.4734489917755
+Epoch: 4 | Train Loss: 0.0301254 Vali Loss: 0.0127255 Test Loss: 0.0306261
+Validation loss decreased (0.016896 --> 0.012726).  Saving model ...
+Updating learning rate to 0.00027
+train_epoch: 15
+	iters: 100, epoch: 5 | loss: 0.0322284
+	speed: 3.4650s/iter; left time: 8690.2932s
+	iters: 200, epoch: 5 | loss: 0.0278178
+	speed: 1.0205s/iter; left time: 2457.4698s
+Epoch: 5 cost time: 305.8459241390228
+Epoch: 5 | Train Loss: 0.0270999 Vali Loss: 0.0151731 Test Loss: 0.0215256
+EarlyStopping counter: 1 out of 5
+Updating learning rate to 0.000243
+train_epoch: 15
+	iters: 100, epoch: 6 | loss: 0.0231588
+	speed: 3.2981s/iter; left time: 7490.0040s
+	iters: 200, epoch: 6 | loss: 0.0272841
+	speed: 1.1219s/iter; left time: 2435.7089s
+Epoch: 6 cost time: 318.33975076675415
+Epoch: 6 | Train Loss: 0.0251189 Vali Loss: 0.0126238 Test Loss: 0.0239372
+Validation loss decreased (0.012726 --> 0.012624).  Saving model ...
+Updating learning rate to 0.0002187
+train_epoch: 15
+	iters: 100, epoch: 7 | loss: 0.0201017
+	speed: 4.7816s/iter; left time: 9725.8224s
+	iters: 200, epoch: 7 | loss: 0.0262937
+	speed: 10.1100s/iter; left time: 19552.6843s
+Epoch: 7 cost time: 2782.404694080353
+Epoch: 7 | Train Loss: 0.0239447 Vali Loss: 0.0143737 Test Loss: 0.0215255
+EarlyStopping counter: 1 out of 5
+Updating learning rate to 0.00019683
+train_epoch: 15
+	iters: 100, epoch: 8 | loss: 0.0215976
+	speed: 55.6503s/iter; left time: 100003.5330s
+	iters: 200, epoch: 8 | loss: 0.0251523
+	speed: 2.1538s/iter; left time: 3654.9214s
+Epoch: 8 cost time: 4227.111476898193
+Epoch: 8 | Train Loss: 0.0230203 Vali Loss: 0.0155312 Test Loss: 0.0215499
+EarlyStopping counter: 2 out of 5
+Updating learning rate to 0.000177147
+train_epoch: 15
+	iters: 100, epoch: 9 | loss: 0.0349632
+	speed: 3.2886s/iter; left time: 5130.2445s
+	iters: 200, epoch: 9 | loss: 0.0212209
+	speed: 1.0088s/iter; left time: 1472.8103s
+Epoch: 9 cost time: 302.1447343826294
+Epoch: 9 | Train Loss: 0.0221961 Vali Loss: 0.0147958 Test Loss: 0.0254497
+EarlyStopping counter: 3 out of 5
+Updating learning rate to 0.0001594323
+train_epoch: 15
+	iters: 100, epoch: 10 | loss: 0.0232347
+	speed: 3.2768s/iter; left time: 4335.2470s
+	iters: 200, epoch: 10 | loss: 0.0202007
+	speed: 0.9876s/iter; left time: 1207.7942s
+Epoch: 10 cost time: 299.74307084083557
+Epoch: 10 | Train Loss: 0.0218734 Vali Loss: 0.0143753 Test Loss: 0.0221799
+EarlyStopping counter: 4 out of 5
+Updating learning rate to 0.00014348907
+train_epoch: 15
+	iters: 100, epoch: 11 | loss: 0.0228386
+	speed: 3.2966s/iter; left time: 3580.0934s
+	iters: 200, epoch: 11 | loss: 0.0204987
+	speed: 1.0157s/iter; left time: 1001.4438s
+Epoch: 11 cost time: 304.02766728401184
+Epoch: 11 | Train Loss: 0.0207444 Vali Loss: 0.0157356 Test Loss: 0.0217908
+EarlyStopping counter: 5 out of 5
+Early stopping
+损失历史已保存至: ./checkpoints/AngleDataModernTCN_sl200_pl200_ModernTCN_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0/loss_history.csv
+损失曲线图已保存至: ./checkpoints/AngleDataModernTCN_sl200_pl200_ModernTCN_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0/loss_curve.pdf
+>>>>>>>testing : AngleDataModernTCN_sl200_pl200_ModernTCN_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+已应用use_smoothing
+当前样本类型: test, 该类型样本数量: 401
+已应用use_smoothing
+当前样本类型: val, 该类型样本数量: 1001
+标准化后 - mse:0.023937158286571503, mae:0.1168285608291626, rse:0.1768578588962555
+标准化后 - x: mse=0.034530, mae=0.138648
+标准化后 - y: mse=0.015750, mae=0.099020
+标准化后 - z: mse=0.021530, mae=0.112816
+preds_denorm shape: (400, 200, 3)
+反标准化后 - mse:0.004375463351607323, mae:0.04913540557026863, rse:0.0015630186535418034
+反标准化后 - x: mse=0.007299, mae=0.063743
+反标准化后 - y: mse=0.002397, mae=0.038628
+反标准化后 - z: mse=0.003431, mae=0.045035
+已生成 5 个样本的反标准化后可视化图片。一共有400个样本。

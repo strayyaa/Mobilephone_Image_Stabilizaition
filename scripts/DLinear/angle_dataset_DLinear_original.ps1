@@ -1,35 +1,30 @@
 if (-not (Test-Path "./logs")) { New-Item -ItemType Directory -Path "./logs" }
 if (-not (Test-Path "./logs/LongForecasting")) { New-Item -ItemType Directory -Path "./logs/LongForecasting" }
 
-# Configuration
+# 基础配置
 $seq_len = 200
-$model_name = "DLinear_XYZ"
+$model_name = "DLinear"
 $root_path_name = "../../dataset/"
 $data_path_name = "data.csv"
-$model_id_name = "AngleDataDLinearXYZ"
+$model_id_name = "AngleData"
 $data_name = "angle"
+$target = "z_angle_1"
 
-# Model parameters
-$enc_in = 3
-$label_len = 48
-$moving_avg = 25
-
-# Training parameters (tuned for integrated pipeline)
-$train_epochs = 20
+# 训练超参
+$train_epochs = 10
 $patience = 5
-$batch_size = 128
-$learning_rate = 0.001
+$batch_size = 32
+$learning_rate = 0.0001
 $random_seed = 2021
 $itr = 1
 
 $pred_lengths = @(200)
-$individual = 1
 
-Write-Host "Starting DLinear_XYZ training..." -ForegroundColor Green
+Write-Host "Starting original DLinear training..." -ForegroundColor Green
 
 foreach ($pred_len in $pred_lengths) {
-    $model_id = "$model_id_name" + "_sl" + "$seq_len" + "_pl" + "$pred_len"
-    $log_file = "logs/LongForecasting/$model_name" + "_" + "$model_id.log"
+    $model_id = "{0}_{1}_{2}" -f $model_id_name, $seq_len, $pred_len
+    $log_file = "logs/LongForecasting/{0}_{1}.log" -f $model_name, $model_id
 
     if (Get-Command python -ErrorAction SilentlyContinue) {
         $py = 'python'
@@ -50,26 +45,22 @@ foreach ($pred_len in $pred_lengths) {
       --data $data_name `
       --features M `
       --seq_len $seq_len `
-      --label_len $label_len `
+      --label_len 48 `
       --pred_len $pred_len `
-      --enc_in $enc_in `
-      --dec_in $enc_in `
-      --c_out $enc_in `
-      --moving_avg $moving_avg `
+      --enc_in 3 `
+      --dec_in 3 `
+      --c_out 3 `
       --des 'Exp' `
       --train_epochs $train_epochs `
       --patience $patience `
       --itr $itr `
-      --no_use_augmentation `
-      --no_use_smoothing `
-        --batch_size $batch_size `
-        --learning_rate $learning_rate `
-        --individual $individual `
-        --dlinear_xyz_use_autoformer `
-        --dlinear_xyz_top_k_fft 64 `
-        --dlinear_xyz_top_k_corr 4 `
-        --dlinear_xyz_layers_cnt 1 `
-        --dlinear_xyz_layers_cnt_encoder 1 | Tee-Object -FilePath $log_file
+      --batch_size $batch_size `
+      --learning_rate $learning_rate `
+      --use_augmentation `
+      --use_smoothing `
+      --check_self_correlation `
+      --target $target `
+      2>&1 | Tee-Object -FilePath $log_file
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Training completed: $log_file" -ForegroundColor Green

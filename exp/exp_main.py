@@ -497,7 +497,7 @@ class Exp_Main(Exp_Basic):
         self._plot_correlation_heatmap(corr_matrix, heatmap_path, channel_index, title_suffix='原始')
 
         # FFT-based analysis (real & imaginary parts)
-        fft_complex = np.fft.fft(series_matrix, axis=1)
+        fft_complex = np.fft.fft(series_matrix, axis=1) / np.sqrt(series_matrix.shape[1])
         fft_real = np.real(fft_complex)
         fft_imag = np.imag(fft_complex)
 
@@ -514,19 +514,12 @@ class Exp_Main(Exp_Basic):
         fft_imag_heatmap_path = os.path.join(folder_path, f'self_correlation_fft_imag_channel{channel_index}.png')
         self._plot_correlation_heatmap(corr_matrix_fft_imag, fft_imag_heatmap_path, channel_index, title_suffix='FFT-Imag')
 
-        scatter_real_path = os.path.join(folder_path, f'self_correlation_comparison_fft_real_channel{channel_index}.png')
-        self._plot_correlation_scatter(corr_matrix, corr_matrix_fft_real, scatter_real_path, channel_index, suffix='FFT-Real')
-        scatter_imag_path = os.path.join(folder_path, f'self_correlation_comparison_fft_imag_channel{channel_index}.png')
-        self._plot_correlation_scatter(corr_matrix, corr_matrix_fft_imag, scatter_imag_path, channel_index, suffix='FFT-Imag')
-
         print(f'已保存 DML 偏相关矩阵至: {matrix_path}')
         print(f'已保存 DML 偏相关热力图至: {heatmap_path}')
         print(f'已保存 FFT 实部偏相关矩阵至: {fft_real_matrix_path}')
         print(f'已保存 FFT 实部偏相关热力图至: {fft_real_heatmap_path}')
         print(f'已保存 FFT 虚部偏相关矩阵至: {fft_imag_matrix_path}')
         print(f'已保存 FFT 虚部偏相关热力图至: {fft_imag_heatmap_path}')
-        print(f'已保存原始-FFT 实部偏相关散点图至: {scatter_real_path}')
-        print(f'已保存原始-FFT 虚部偏相关散点图至: {scatter_imag_path}')
 
     def _compute_dml_partial_correlation(self, series_matrix, design_matrix):
         samples, horizon = series_matrix.shape
@@ -554,6 +547,11 @@ class Exp_Main(Exp_Basic):
                 else:
                     beta = np.dot(t_res, y_res) / denom
 
+                if beta > 1.0:
+                    beta = 1.0
+                elif beta < -1.0:
+                    beta = -1.0
+
                 corr_matrix[i, j] = beta
 
         return corr_matrix
@@ -574,30 +572,6 @@ class Exp_Main(Exp_Basic):
         plt.savefig(file_path, dpi=300)
         plt.close()
 
-    def _plot_correlation_scatter(self, corr_matrix, corr_matrix_fft, file_path, channel_index, suffix=''):
-        if corr_matrix.shape != corr_matrix_fft.shape:
-            raise ValueError('原始与 FFT 矩阵形状不一致，无法绘制散点图')
-
-        tri_idx = np.triu_indices_from(corr_matrix, k=1)
-        original_vals = corr_matrix[tri_idx]
-        fft_vals = corr_matrix_fft[tri_idx]
-
-        plt.figure(figsize=(6, 6))
-        plt.scatter(original_vals, fft_vals, alpha=0.6, edgecolors='none')
-        max_val = max(np.max(np.abs(original_vals)), np.max(np.abs(fft_vals)), 1e-6)
-        limit = max_val * 1.05
-        plt.plot([-limit, limit], [-limit, limit], 'k--', linewidth=1)
-        plt.xlim(-limit, limit)
-        plt.ylim(-limit, limit)
-        plt.xlabel('原始偏相关系数')
-        ylabel = 'FFT 偏相关系数' if not suffix else f'{suffix} 偏相关系数'
-        plt.ylabel(ylabel)
-        title_suffix = suffix if suffix else 'FFT'
-        plt.title(f'原始 vs {title_suffix} 偏相关散点图 (channel {channel_index})')
-        plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.5)
-        plt.tight_layout()
-        plt.savefig(file_path, dpi=300)
-        plt.close()
 
     def predict(self, setting, load=False):
         pred_data, pred_loader = self._get_data(flag='pred')

@@ -26,6 +26,16 @@ if __name__ == '__main__':
     parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
+    parser.add_argument('--use_fft_enhance_data', action='store_true', default=False,
+                        help='在训练/推理阶段对输入序列执行FFT增强（保持原始数据用于评估）。')
+    parser.add_argument('--fft_low_freq_ratio', type=float, default=0.25, help='FFT增强：低频阈值占比')
+    parser.add_argument('--fft_high_freq_ratio', type=float, default=0.7, help='FFT增强：高频阈值占比')
+    parser.add_argument('--fft_cutoff_ratio', type=float, default=0.9, help='FFT增强：高频截断占比')
+    parser.add_argument('--fft_low_freq_boost', type=float, default=1.3, help='FFT增强：低频增益')
+    parser.add_argument('--fft_mid_freq_boost', type=float, default=1.1, help='FFT增强：中频增益')
+    parser.add_argument('--fft_high_freq_suppress', type=float, default=0.2, help='FFT增强：高频抑制')
+    parser.add_argument('--fft_residual_ratio', type=float, default=0.5, help='FFT增强：输出与原始信号的混合比例 (0~1)')
+    parser.add_argument('--fft_reflection_pad', type=int, default=32, help='FFT增强：反射填充长度以减轻边界伪影')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
     parser.add_argument('--use_augmentation', action='store_true', help='use data augmentation for training set', default=True)
     parser.add_argument('--no_use_augmentation',dest='use_augmentation',action='store_false')

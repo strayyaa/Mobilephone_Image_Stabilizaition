@@ -16,6 +16,7 @@ from models import (
 from utils.tools import EarlyStopping, StandardScaler, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 from utils.my_losses import frequency_loss
+from utils.fft_enhancement import FFTEnhancer
 
 import numpy as np
 import torch
@@ -36,6 +37,19 @@ warnings.filterwarnings('ignore')
 class Exp_Main(Exp_Basic):
     def __init__(self, args):
         super(Exp_Main, self).__init__(args)
+        self.fft_enhancer = None
+        if getattr(self.args, 'use_fft_enhance_data', False):
+            self.fft_enhancer = FFTEnhancer(
+                low_freq_ratio=self.args.fft_low_freq_ratio,
+                high_freq_ratio=self.args.fft_high_freq_ratio,
+                low_freq_boost=self.args.fft_low_freq_boost,
+                mid_freq_boost=self.args.fft_mid_freq_boost,
+                high_freq_suppress=self.args.fft_high_freq_suppress,
+                cutoff_ratio=self.args.fft_cutoff_ratio,
+                residual_ratio=self.args.fft_residual_ratio,
+                reflection_pad=self.args.fft_reflection_pad,
+            )
+            print('FFT增强已启用：模型输入将在运行时进行频域加权，评估保持在原始数据空间。')
 
     def _build_model(self):
         model_dict = {
@@ -60,6 +74,29 @@ class Exp_Main(Exp_Basic):
     def _get_data(self, flag):
         data_set, data_loader = data_provider(self.args, flag)
         return data_set, data_loader
+
+    def _fft_enhance_tensor(self, tensor):
+        if self.fft_enhancer is None or tensor is None:
+            return tensor
+        tensor_np = tensor.detach().cpu().numpy()
+        enhanced = np.zeros_like(tensor_np)
+        for idx in range(tensor_np.shape[0]):
+            enhanced[idx] = self.fft_enhancer.enhance_batch(tensor_np[idx])
+        enhanced_tensor = torch.from_numpy(enhanced).to(tensor.device)
+        return enhanced_tensor.type_as(tensor)
+
+    def _prepare_fft_inputs(self, batch_x, dec_inp):
+        if self.fft_enhancer is None:
+            return batch_x, dec_inp
+
+        batch_x_fft = self._fft_enhance_tensor(batch_x)
+
+        # decoder输入的后半段由全零构成，若整体FFT会引入人工偏移，故仅增强有真实观测的标签段
+        dec_fft = dec_inp.clone()
+        label_len = min(self.args.label_len, dec_inp.shape[1])
+        if label_len > 0:
+            dec_fft[:, :label_len, :] = self._fft_enhance_tensor(dec_inp[:, :label_len, :])
+        return batch_x_fft, dec_fft
 
     def _select_optimizer(self):  # model.parameters()是什么
         model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
@@ -97,12 +134,13 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 # encoder - decoder
+                batch_x_fft, dec_inp_fft = self._prepare_fft_inputs(batch_x, dec_inp)
                 if self.args.use_amp:  
                     # 混合精度指在深度学习训练或推理过程中，同时使用不同数值精度的数据类型（如 float16 和 float32），以提升计算速度、减少显存占用，同时保持模型精度。
                     with torch.cuda.amp.autocast():
-                        outputs = self._forward_model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
                 else:
-                    outputs = self._forward_model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                    outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
@@ -176,9 +214,10 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
 
                 # encoder - decoder
+                batch_x_fft, dec_inp_fft = self._prepare_fft_inputs(batch_x, dec_inp)
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        outputs = self._forward_model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
 
                         f_dim = -1 if self.args.features == 'MS' else 0
                         outputs = outputs[:, -self.args.pred_len:, f_dim:]
@@ -186,7 +225,7 @@ class Exp_Main(Exp_Basic):
                         loss = criterion(outputs, batch_y)
                         train_loss.append(loss.item())
                 else:
-                    outputs = self._forward_model(batch_x, batch_x_mark, dec_inp, batch_y_mark, batch_y)
+                    outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark, batch_y)
                     # print(outputs.shape,batch_y.shape)
                     f_dim = -1 if self.args.features == 'MS' else 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
@@ -313,11 +352,12 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 # encoder - decoder
+                batch_x_fft, dec_inp_fft = self._prepare_fft_inputs(batch_x, dec_inp)
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        outputs = self._forward_model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
                 else:
-                    outputs = self._forward_model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                    outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 # print(outputs.shape,batch_y.shape)
@@ -498,8 +538,13 @@ class Exp_Main(Exp_Basic):
 
         # FFT-based analysis (real & imaginary parts)
         fft_complex = np.fft.fft(series_matrix, axis=1) / np.sqrt(series_matrix.shape[1])
-        fft_real = np.real(fft_complex)
-        fft_imag = np.imag(fft_complex)
+        fft_real_full = np.real(fft_complex)
+        fft_imag_full = np.imag(fft_complex)
+
+        # 偏相关分析仅保留正频部分，避免共轭对称下的重复信息
+        fft_horizon = max(1, series_matrix.shape[1] // 2)
+        fft_real = fft_real_full[:, :fft_horizon]
+        fft_imag = fft_imag_full[:, :fft_horizon]
 
         corr_matrix_fft_real = self._compute_dml_partial_correlation(fft_real, design_matrix)
         corr_matrix_fft_imag = self._compute_dml_partial_correlation(fft_imag, design_matrix)
@@ -595,11 +640,12 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.zeros([batch_y.shape[0], self.args.pred_len, batch_y.shape[2]]).float().to(batch_y.device)
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 # encoder - decoder
+                batch_x_fft, dec_inp_fft = self._prepare_fft_inputs(batch_x, dec_inp)
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        outputs = self._forward_model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
                 else:
-                    outputs = self._forward_model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                    outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
                 pred = outputs.detach().cpu().numpy()  # .squeeze()
                 preds.append(pred)
 

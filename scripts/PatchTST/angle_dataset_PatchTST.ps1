@@ -93,6 +93,7 @@ foreach ($pred_len in $pred_lengths) {
       --jitter_sigma $jitter_sigma `
       --scale_alpha $scale_alpha `
       --individual $individual `
+      --check_self_correlation `
       --auxi_lambda $auxi_lambda `
       --rec_lambda $rec_lambda `
       --target $target `

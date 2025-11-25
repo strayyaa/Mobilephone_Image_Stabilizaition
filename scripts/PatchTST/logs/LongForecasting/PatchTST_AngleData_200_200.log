@@ -1,5 +1,5 @@
 Args in experiment:
-Namespace(random_seed=2021, is_training=1, model_id='AngleData_200_200', model='PatchTST', data='angle', root_path='../../dataset/', data_path='data.csv', features='M', target='z_angle_1', freq='h', checkpoints='./checkpoints/', use_augmentation=True, jitter_sigma=0.08, scale_alpha=0.1, use_smoothing=True, downsample_rate=10, seq_len=200, label_len=48, pred_len=200, fc_dropout=0.1, head_dropout=0.0, patch_len=16, stride=1, padding_patch='end', revin=1, affine=0, subtract_last=0, decomposition=0, kernel_size=25, individual=1, embed_type=0, enc_in=3, dec_in=3, c_out=3, d_model=64, n_heads=2, e_layers=2, d_layers=1, d_ff=128, moving_avg=25, factor=1, distil=True, dropout=0.3, embed='timeF', activation='gelu', output_attention=False, do_predict=False, num_workers=10, itr=1, train_epochs=10, batch_size=32, patience=5, learning_rate=0.0001, des='Exp', loss='mse', lradj='type3', pct_start=0.3, use_amp=False, rec_lambda=1.0, auxi_lambda=0.0, use_gpu=False, gpu=0, use_multi_gpu=False, devices='0,1,2,3', test_flop=False)
+Namespace(random_seed=2021, is_training=1, model_id='AngleData_200_200', model='PatchTST', data='angle', root_path='../../dataset/', data_path='data.csv', features='M', target='z_angle_1', freq='h', checkpoints='./checkpoints/', use_augmentation=True, jitter_sigma=0.08, scale_alpha=0.1, use_smoothing=True, downsample_rate=10, seq_len=200, label_len=48, pred_len=200, dlinear_xyz_use_pos_encoding=False, dlinear_xyz_use_arima_trend=False, dlinear_xyz_use_arima_trend_comp=False, dlinear_xyz_use_fft_promote_feature=False, dlinear_xyz_use_fft_plus_feature=False, dlinear_xyz_use_ifft_plus=False, dlinear_xyz_use_merge=False, dlinear_xyz_use_broader_individual=False, dlinear_xyz_use_mix_linear=False, dlinear_xyz_use_autoformer=False, dlinear_xyz_use_full_autoformer=False, dlinear_xyz_top_k_fft=64, dlinear_xyz_top_k_corr=4, dlinear_xyz_layers_cnt=1, dlinear_xyz_layers_cnt_encoder=1, dlinear_xyz_arima_order='(2,1,0)', dlinear_xyz_arima_moving_avg=5, dlinear_xyz_merge_rate_init=0.3, dlinear_xyz_merge_between_init=1.0, fc_dropout=0.1, head_dropout=0.0, patch_len=16, stride=1, padding_patch='end', revin=1, affine=0, subtract_last=0, decomposition=0, kernel_size=25, individual=1, arima_order_p=2, arima_order_d=0, arima_order_q=1, arima_maxiter=200, arima_enforce_stationarity=False, arima_enforce_invertibility=False, arima_fallback_window=5, prophet_changepoint_prior_scale=0.05, prophet_seasonality_mode='additive', prophet_growth='linear', prophet_n_changepoints=25, prophet_yearly_seasonality='auto', prophet_weekly_seasonality='auto', prophet_daily_seasonality='auto', prophet_fallback_window=5, embed_type=0, enc_in=3, dec_in=3, c_out=3, d_model=64, n_heads=2, e_layers=2, d_layers=1, d_ff=128, moving_avg=25, factor=1, distil=True, dropout=0.3, embed='timeF', activation='gelu', output_attention=False, do_predict=False, stem_ratio=6, downsample_ratio=2, ffn_ratio=2, patch_size=16, patch_stride=8, num_blocks=[1, 1, 1, 1], large_size=[31, 29, 27, 13], small_size=[5, 5, 5, 5], dims=[256, 256, 256, 256], small_kernel_merged=False, use_multi_scale=1, num_workers=10, itr=1, train_epochs=10, batch_size=32, patience=5, learning_rate=0.0001, des='Exp', loss='mse', lradj='type3', pct_start=0.3, use_amp=False, rec_lambda=1.0, auxi_lambda=0.0, use_gpu=False, gpu=0, use_multi_gpu=False, devices='0,1,2,3', test_flop=False)
 Use CPU
 Using RevIN
 Using individual heads for each variable
@@ -17,88 +17,18 @@ Using individual heads for each variable
 当前样本类型: test, 该类型样本数量: 401
 train_epoch: 10
 	iters: 100, epoch: 1 | loss: 0.0773840
-	speed: 0.2473s/iter; left time: 267.3722s
-Epoch: 1 cost time: 77.5283350944519
+	speed: 0.4637s/iter; left time: 501.2110s
+Epoch: 1 cost time: 49.784358978271484
 Epoch: 1 | Train Loss: 0.0827582 Vali Loss: 0.0173323 Test Loss: 0.0210009
 Validation loss decreased (inf --> 0.017332).  Saving model ...
 Updating learning rate to 0.0001
 train_epoch: 10
 	iters: 100, epoch: 2 | loss: 0.0354237
-	speed: 1.8514s/iter; left time: 1782.9140s
-Epoch: 2 cost time: 77.14858770370483
+	speed: 1.0261s/iter; left time: 988.1082s
+Epoch: 2 cost time: 49.253633975982666
 Epoch: 2 | Train Loss: 0.0525885 Vali Loss: 0.0154712 Test Loss: 0.0194466
 Validation loss decreased (0.017332 --> 0.015471).  Saving model ...
 Updating learning rate to 0.0001
 train_epoch: 10
 	iters: 100, epoch: 3 | loss: 0.0312783
-	speed: 1.8549s/iter; left time: 1567.3872s
-Epoch: 3 cost time: 77.63608908653259
-Epoch: 3 | Train Loss: 0.0432950 Vali Loss: 0.0126302 Test Loss: 0.0171198
-Validation loss decreased (0.015471 --> 0.012630).  Saving model ...
-Updating learning rate to 0.0001
-train_epoch: 10
-	iters: 100, epoch: 4 | loss: 0.0430421
-	speed: 1.8563s/iter; left time: 1349.5394s
-Epoch: 4 cost time: 77.12839794158936
-Epoch: 4 | Train Loss: 0.0404305 Vali Loss: 0.0145539 Test Loss: 0.0196221
-EarlyStopping counter: 1 out of 5
-Updating learning rate to 9e-05
-train_epoch: 10
-	iters: 100, epoch: 5 | loss: 0.0438886
-	speed: 1.8486s/iter; left time: 1125.8150s
-Epoch: 5 cost time: 76.5048189163208
-Epoch: 5 | Train Loss: 0.0389402 Vali Loss: 0.0132668 Test Loss: 0.0170895
-EarlyStopping counter: 2 out of 5
-Updating learning rate to 8.1e-05
-train_epoch: 10
-	iters: 100, epoch: 6 | loss: 0.0300040
-	speed: 1.8433s/iter; left time: 905.0416s
-Epoch: 6 cost time: 76.47597789764404
-Epoch: 6 | Train Loss: 0.0388848 Vali Loss: 0.0122929 Test Loss: 0.0162498
-Validation loss decreased (0.012630 --> 0.012293).  Saving model ...
-Updating learning rate to 7.290000000000001e-05
-train_epoch: 10
-	iters: 100, epoch: 7 | loss: 0.0355449
-	speed: 1.8475s/iter; left time: 689.1360s
-Epoch: 7 cost time: 76.8867928981781
-Epoch: 7 | Train Loss: 0.0387407 Vali Loss: 0.0126954 Test Loss: 0.0163059
-EarlyStopping counter: 1 out of 5
-Updating learning rate to 6.561e-05
-train_epoch: 10
-	iters: 100, epoch: 8 | loss: 0.0392004
-	speed: 1.8476s/iter; left time: 471.1332s
-Epoch: 8 cost time: 76.84563112258911
-Epoch: 8 | Train Loss: 0.0378118 Vali Loss: 0.0124079 Test Loss: 0.0157950
-EarlyStopping counter: 2 out of 5
-Updating learning rate to 5.904900000000001e-05
-train_epoch: 10
-	iters: 100, epoch: 9 | loss: 0.0304687
-	speed: 1.8488s/iter; left time: 253.2816s
-Epoch: 9 cost time: 76.87252688407898
-Epoch: 9 | Train Loss: 0.0377300 Vali Loss: 0.0132048 Test Loss: 0.0171588
-EarlyStopping counter: 3 out of 5
-Updating learning rate to 5.3144100000000005e-05
-train_epoch: 10
-	iters: 100, epoch: 10 | loss: 0.0362463
-	speed: 1.8565s/iter; left time: 35.2736s
-Epoch: 10 cost time: 77.43095684051514
-Epoch: 10 | Train Loss: 0.0376038 Vali Loss: 0.0118606 Test Loss: 0.0157424
-Validation loss decreased (0.012293 --> 0.011861).  Saving model ...
-Updating learning rate to 4.782969000000001e-05
-损失历史已保存至: ./checkpoints/AngleData_200_200_PatchTST_angle_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_Exp_0/loss_history.csv
-损失曲线图已保存至: ./checkpoints/AngleData_200_200_PatchTST_angle_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_Exp_0/loss_curve.pdf
->>>>>>>testing : AngleData_200_200_PatchTST_angle_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_Exp_0<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-已应用use_smoothing
-当前样本类型: test, 该类型样本数量: 401
-已应用use_smoothing
-当前样本类型: val, 该类型样本数量: 1001
-标准化后 - mse:0.015742426738142967, mae:0.09288091212511063, rse:0.1438126266002655
-标准化后 - x: mse=0.016006, mae=0.095642
-标准化后 - y: mse=0.014988, mae=0.091828
-标准化后 - z: mse=0.016233, mae=0.091173
-preds_denorm shape: (384, 200, 3)
-反标准化后 - mse:0.002750258194282651, mae:0.03872944414615631, rse:0.0012392253847792745
-反标准化后 - x: mse=0.003383, mae=0.043971
-反标准化后 - y: mse=0.002281, mae=0.035822
-反标准化后 - z: mse=0.002587, mae=0.036395
-已生成 5 个样本的反标准化后可视化图片。一共有384个样本。
+	speed: 1.2799s/iter; left time: 1081.4838s

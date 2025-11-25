@@ -13,13 +13,13 @@ class FFTEnhancer:
 
     def __init__(
         self,
-        low_freq_ratio: float = 0.25,
-        high_freq_ratio: float = 0.7,
+        low_freq_ratio: float = 0.005,
+        high_freq_ratio: float = 0.01,
         low_freq_boost: float = 1.2,
         mid_freq_boost: float = 1.0,
         high_freq_suppress: float = 0.3,
-        cutoff_ratio: float = 0.9,
-        residual_ratio: float = 0.5,
+        cutoff_ratio: float = 0.02,
+        residual_ratio: float = 0.7,
         reflection_pad: int = 32,
     ) -> None:
         if not (0.0 < low_freq_ratio < high_freq_ratio < 1.0):
@@ -90,17 +90,25 @@ class FFTEnhancer:
         return enhanced
 
 
-def compare_signals_fft(original: np.ndarray, enhanced: np.ndarray, title: str, save_path: str | None = None) -> None:
-    """Visualize time-domain and magnitude-spectrum differences."""
+def compare_signals_fft(
+    original: np.ndarray,
+    enhanced: np.ndarray,
+    title: str,
+    save_path: str | None = None,
+    show_residual: bool = True,
+) -> None:
+    """Visualize time-domain, spectrum, and residual for FFT enhancement."""
 
     if original.shape != enhanced.shape:
         raise ValueError('原始与增强信号长度不一致')
 
-    fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+    residual = enhanced - original
+    rows = 3 if show_residual else 2
+    fig, axes = plt.subplots(rows, 1, figsize=(12, 10 if show_residual else 8))
 
     axes[0].plot(original, label='原始信号', alpha=0.7)
-    axes[0].plot(enhanced, label='FFT增强信号', alpha=0.7)
-    axes[0].set_title(f'{title} - 时域对比')
+    axes[0].plot(enhanced, label='FFT增强信号', alpha=0.8)
+    axes[0].set_title(f'{title} - 时域对比（含残差混合）')
     axes[0].set_xlabel('时间步')
     axes[0].set_ylabel('幅度')
     axes[0].legend()
@@ -109,13 +117,22 @@ def compare_signals_fft(original: np.ndarray, enhanced: np.ndarray, title: str, 
     orig_fft = np.fft.rfft(original)
     enh_fft = np.fft.rfft(enhanced)
     axes[1].plot(np.abs(orig_fft), label='原始频谱', alpha=0.7)
-    axes[1].plot(np.abs(enh_fft), label='增强频谱', alpha=0.7)
-    axes[1].set_title(f'{title} - 频谱幅度对比')
+    axes[1].plot(np.abs(enh_fft), label='增强频谱', alpha=0.8)
+    axes[1].set_title(f'{title} - 频谱幅度对比（反射填充后）')
     axes[1].set_xlabel('频率索引')
     axes[1].set_ylabel('|FFT|')
     axes[1].set_yscale('log')
     axes[1].legend()
     axes[1].grid(True, alpha=0.3, which='both')
+
+    if show_residual:
+        axes[2].plot(residual, color='tab:orange', label='增强残差 = 增强 - 原始')
+        axes[2].axhline(0, color='k', linewidth=0.8, alpha=0.6)
+        axes[2].set_title(f'{title} - 注入的低频残差')
+        axes[2].set_xlabel('时间步')
+        axes[2].set_ylabel('残差值')
+        axes[2].legend()
+        axes[2].grid(True, alpha=0.3)
 
     plt.tight_layout()
     if save_path:

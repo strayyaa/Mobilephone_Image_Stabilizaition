@@ -65,6 +65,14 @@ foreach ($pred_len in $pred_lengths) {
       --model $model_name `
       --data $data_name `
       --use_fft_enhance_data `
+      --fft_low_freq_ratio 0.005 `
+      --fft_high_freq_ratio 0.01 `
+      --fft_cutoff_ratio 0.02 `
+      --fft_low_freq_boost 1.2 `
+      --fft_mid_freq_boost 1.0 `
+      --fft_high_freq_suppress 0.3 `
+      --fft_residual_ratio 0.7 `
+      --fft_reflection_pad 32 `
       --features M `
       --seq_len $seq_len `
       --label_len 48 `

@@ -86,6 +86,7 @@ foreach ($pred_len in $pred_lengths) {
       --patience $patience `
       --itr 1 `
       --batch_size $batch_size `
+      --num_workers 0 `
       --learning_rate $learning_rate `
       --use_augmentation `
       --use_smoothing `

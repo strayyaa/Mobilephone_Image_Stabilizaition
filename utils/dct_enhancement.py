@@ -93,12 +93,15 @@ def compare_signals(original, enhanced, title='信号对比', save_path=None):
     
     fig, axes = plt.subplots(2, 1, figsize=(12, 8))
     
-    # 时域对比
-    axes[0].plot(original, label='原始信号', alpha=0.7)
-    axes[0].plot(enhanced, label='增强信号', alpha=0.7)
-    axes[0].set_title(f'{title} - 时域对比')
-    axes[0].set_xlabel('时间步')
-    axes[0].set_ylabel('幅度')
+    # 时域对比 - 去除均值以对齐基线
+    original_centered = original - np.mean(original)
+    enhanced_centered = enhanced - np.mean(enhanced)
+    
+    axes[0].plot(original_centered, label='原始信号', alpha=0.7, linewidth=1.5)
+    axes[0].plot(enhanced_centered, label='增强信号', alpha=0.7, linewidth=1.5)
+    axes[0].set_title(f'{title} - 时域对比（已去均值）')
+    axes[0].set_xlabel('时间步（数据点序号）')
+    axes[0].set_ylabel('幅度（去均值后）')
     axes[0].legend()
     axes[0].grid(True, alpha=0.3)
     
@@ -106,14 +109,26 @@ def compare_signals(original, enhanced, title='信号对比', save_path=None):
     original_dct = dct(original, type=2, norm='ortho')
     enhanced_dct = dct(enhanced, type=2, norm='ortho')
     
-    axes[1].plot(np.abs(original_dct), label='原始DCT系数', alpha=0.7)
-    axes[1].plot(np.abs(enhanced_dct), label='增强DCT系数', alpha=0.7)
+    # 过滤数值误差：将极小值设为最小阈值，避免显示数值噪声
+    threshold = 1e-10
+    original_dct_clean = np.where(np.abs(original_dct) < threshold, threshold, np.abs(original_dct))
+    enhanced_dct_clean = np.where(np.abs(enhanced_dct) < threshold, threshold, np.abs(enhanced_dct))
+    
+    axes[1].plot(original_dct_clean, label='原始DCT系数', alpha=0.7, linewidth=1.5)
+    axes[1].plot(enhanced_dct_clean, label='增强DCT系数', alpha=0.7, linewidth=1.5)
     axes[1].set_title(f'{title} - DCT系数对比')
-    axes[1].set_xlabel('系数索引')
-    axes[1].set_ylabel('幅度')
+    axes[1].set_xlabel('系数索引（0=最低频，越大越高频）')
+    axes[1].set_ylabel('系数幅度（对数刻度）')
     axes[1].legend()
     axes[1].grid(True, alpha=0.3)
     axes[1].set_yscale('log')
+    axes[1].set_ylim([threshold, None])  # 设置纵轴下限
+    
+    # 添加频率区域标注
+    n = len(original_dct)
+    axes[1].axvline(n*0.3, color='green', linestyle='--', alpha=0.3, label='低频区')
+    axes[1].axvline(n*0.7, color='red', linestyle='--', alpha=0.3, label='高频区')
+    axes[1].legend()
     
     plt.tight_layout()
     

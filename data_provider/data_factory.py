@@ -1,3 +1,5 @@
+import os
+
 from data_provider.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, Dataset_Pred, Dataset_Angle
 from torch.utils.data import DataLoader
 
@@ -15,6 +17,10 @@ def data_provider(args, flag):
     Data = data_dict[args.data]  # 数据集类在其内部实现了滑动窗口的逻辑？
     # 是否使用时间特征编码 timeenc=1表示使用时间特征编码
     timeenc = 0 if args.embed != 'timeF' else 1
+
+    data_path = args.data_path
+    if getattr(args, 'use_fft_enhance_data', False):
+        print('使用原始数据文件，并在训练/推理阶段在线执行FFT增强。')
 
     if flag == 'test':
         shuffle_flag = False  # 测试集不进行数据打乱
@@ -35,7 +41,7 @@ def data_provider(args, flag):
 
     data_set = Data(
         root_path=args.root_path,  # 数据集根目录
-        data_path=args.data_path,  # 数据集路径
+        data_path=data_path,  # 数据集路径
         flag=flag,    # flag=train表示训练集，flag=test表示测试集，flag=pred表示预测集
         size=[args.seq_len, args.label_len, args.pred_len], # 输入/标签/预测长度
         features=args.features, # 特征类型（多变量/单变量/时间序列分类）

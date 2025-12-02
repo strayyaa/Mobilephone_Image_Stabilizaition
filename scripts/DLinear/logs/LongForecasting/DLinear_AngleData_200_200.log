@@ -15,71 +15,71 @@ Use CPU
 当前样本类型: test, 该类型样本数量: 401
 train_epoch: 10
 	iters: 100, epoch: 1 | loss: 1.0612112
-	speed: 0.1313s/iter; left time: 141.9298s
-Epoch: 1 cost time: 63.21200203895569
+	speed: 0.1366s/iter; left time: 147.6186s
+Epoch: 1 cost time: 63.72158074378967
 Epoch: 1 | Train Loss: 1.0209617 Vali Loss: 1.3565866 Test Loss: 1.3033611
 Validation loss decreased (inf --> 1.356587).  Saving model ...
 Updating learning rate to 0.0001
 train_epoch: 10
 	iters: 100, epoch: 2 | loss: 0.1362139
-	speed: 1.7077s/iter; left time: 1644.5118s
-Epoch: 2 cost time: 62.667490005493164
+	speed: 1.7125s/iter; left time: 1649.1574s
+Epoch: 2 cost time: 63.410789012908936
 Epoch: 2 | Train Loss: 0.3000815 Vali Loss: 0.0385128 Test Loss: 0.0590226
 Validation loss decreased (1.356587 --> 0.038513).  Saving model ...
 Updating learning rate to 0.0001
 train_epoch: 10
 	iters: 100, epoch: 3 | loss: 0.1065435
-	speed: 1.7104s/iter; left time: 1445.2957s
-Epoch: 3 cost time: 62.70566916465759
+	speed: 1.7152s/iter; left time: 1449.3842s
+Epoch: 3 cost time: 62.93274903297424
 Epoch: 3 | Train Loss: 0.0952955 Vali Loss: 0.0192771 Test Loss: 0.0377217
 Validation loss decreased (0.038513 --> 0.019277).  Saving model ...
 Updating learning rate to 0.0001
 train_epoch: 10
 	iters: 100, epoch: 4 | loss: 0.0893924
-	speed: 1.7081s/iter; left time: 1241.8217s
-Epoch: 4 cost time: 63.26002883911133
+	speed: 1.7256s/iter; left time: 1254.4771s
+Epoch: 4 cost time: 63.67962598800659
 Epoch: 4 | Train Loss: 0.0863937 Vali Loss: 0.0169742 Test Loss: 0.0334847
 Validation loss decreased (0.019277 --> 0.016974).  Saving model ...
 Updating learning rate to 9e-05
 train_epoch: 10
 	iters: 100, epoch: 5 | loss: 0.0754975
-	speed: 1.7014s/iter; left time: 1036.1684s
-Epoch: 5 cost time: 62.591814041137695
+	speed: 1.7225s/iter; left time: 1049.0266s
+Epoch: 5 cost time: 64.1056547164917
 Epoch: 5 | Train Loss: 0.0812516 Vali Loss: 0.0159620 Test Loss: 0.0320508
 Validation loss decreased (0.016974 --> 0.015962).  Saving model ...
 Updating learning rate to 8.1e-05
 train_epoch: 10
 	iters: 100, epoch: 6 | loss: 0.0711652
-	speed: 1.7041s/iter; left time: 836.6912s
-Epoch: 6 cost time: 62.63803505897522
+	speed: 1.7244s/iter; left time: 846.6967s
+Epoch: 6 cost time: 64.14119076728821
 Epoch: 6 | Train Loss: 0.0772304 Vali Loss: 0.0156768 Test Loss: 0.0313512
 Validation loss decreased (0.015962 --> 0.015677).  Saving model ...
 Updating learning rate to 7.290000000000001e-05
 train_epoch: 10
 	iters: 100, epoch: 7 | loss: 0.0593587
-	speed: 1.7034s/iter; left time: 635.3818s
-Epoch: 7 cost time: 62.54480314254761
+	speed: 1.7165s/iter; left time: 640.2392s
+Epoch: 7 cost time: 63.21581315994263
 Epoch: 7 | Train Loss: 0.0736881 Vali Loss: 0.0143351 Test Loss: 0.0283983
 Validation loss decreased (0.015677 --> 0.014335).  Saving model ...
 Updating learning rate to 6.561e-05
 train_epoch: 10
 	iters: 100, epoch: 8 | loss: 0.0705952
-	speed: 1.7048s/iter; left time: 434.7334s
-Epoch: 8 cost time: 62.53384613990784
+	speed: 1.7085s/iter; left time: 435.6687s
+Epoch: 8 cost time: 63.01490092277527
 Epoch: 8 | Train Loss: 0.0711021 Vali Loss: 0.0145659 Test Loss: 0.0286539
 EarlyStopping counter: 1 out of 5
 Updating learning rate to 5.904900000000001e-05
 train_epoch: 10
 	iters: 100, epoch: 9 | loss: 0.0821675
-	speed: 1.7011s/iter; left time: 233.0530s
-Epoch: 9 cost time: 62.28581213951111
+	speed: 1.7053s/iter; left time: 233.6233s
+Epoch: 9 cost time: 62.66070199012756
 Epoch: 9 | Train Loss: 0.0689780 Vali Loss: 0.0148053 Test Loss: 0.0287483
 EarlyStopping counter: 2 out of 5
 Updating learning rate to 5.3144100000000005e-05
 train_epoch: 10
 	iters: 100, epoch: 10 | loss: 0.0546766
-	speed: 1.7005s/iter; left time: 32.3097s
-Epoch: 10 cost time: 62.44506812095642
+	speed: 1.7064s/iter; left time: 32.4210s
+Epoch: 10 cost time: 63.008718967437744
 Epoch: 10 | Train Loss: 0.0672196 Vali Loss: 0.0144281 Test Loss: 0.0279212
 EarlyStopping counter: 3 out of 5
 Updating learning rate to 4.782969000000001e-05
@@ -96,8 +96,6 @@ Updating learning rate to 4.782969000000001e-05
 已保存 FFT 实部偏相关热力图至: ./results/AngleData_200_200_DLinear_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0/self_correlation_fft_real_channel0.png
 已保存 FFT 虚部偏相关矩阵至: ./results/AngleData_200_200_DLinear_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0/self_correlation_fft_imag_channel0.csv
 已保存 FFT 虚部偏相关热力图至: ./results/AngleData_200_200_DLinear_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0/self_correlation_fft_imag_channel0.png
-已保存原始-FFT 实部偏相关散点图至: ./results/AngleData_200_200_DLinear_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0/self_correlation_comparison_fft_real_channel0.png
-已保存原始-FFT 虚部偏相关散点图至: ./results/AngleData_200_200_DLinear_angle_ftM_sl200_ll48_pl200_dm512_nh8_el2_dl1_df2048_fc1_ebtimeF_dtTrue_Exp_0/self_correlation_comparison_fft_imag_channel0.png
 标准化后 - mse:0.02839834801852703, mae:0.12821203470230103, rse:0.19315579533576965
 标准化后 - x: mse=0.021694, mae=0.107335
 标准化后 - y: mse=0.048000, mae=0.179544

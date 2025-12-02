@@ -25,11 +25,15 @@ if __name__ == '__main__':
     # 测试三个通道
     channels = ['x_angle_1', 'y_angle_1', 'z_angle_1']
     
-    # 创建增强器
+    # 创建增强器 - 参考FFT增强器的激进参数（极致平滑版）
     enhancer = DCTEnhancer(
-        low_freq_boost=1.3,      # 低频增强30%
-        high_freq_suppress=0.2,  # 高频抑制到20%
-        cutoff_ratio=0.7         # 保留70%的系数
+        low_freq_boost=1.5,       # 低频增强50%
+        high_freq_suppress=0.15,  # 高频抑制到15%
+        cutoff_ratio=0.05,        # 只保留5%的低频系数（接近FFT的2%）
+        low_freq_ratio=0.01,      # 低频区域：前1%
+        high_freq_ratio=0.03,     # 高频区域：3%之后
+        residual_ratio=0.7,       # 残差混合70%
+        reflection_pad=128        # 反射填充128个点（增加平滑度）
     )
     
     for channel in channels:
@@ -40,6 +44,10 @@ if __name__ == '__main__':
         
         # 增强
         enhanced = enhancer.enhance(signal)
+        
+        # 计算残差统计
+        delta = enhanced - signal
+        print(f"  残差均值 {delta.mean():.4e}, 残差标准差 {delta.std():.4e}, 峰值 {delta.max():.4f}/{delta.min():.4f}")
         
         # 对比并保存
         save_path = f'./dct_results/{channel}_comparison.png'

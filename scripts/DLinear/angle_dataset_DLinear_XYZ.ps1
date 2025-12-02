@@ -15,9 +15,9 @@ $label_len = 48
 $moving_avg = 25
 
 # Training parameters (tuned for integrated pipeline)
-$train_epochs = 10
+$train_epochs = 20
 $patience = 5
-$batch_size = 32
+$batch_size = 128
 $learning_rate = 0.001
 $random_seed = 2021
 $itr = 1
@@ -60,14 +60,16 @@ foreach ($pred_len in $pred_lengths) {
       --train_epochs $train_epochs `
       --patience $patience `
       --itr $itr `
-            --batch_size $batch_size `
-            --learning_rate $learning_rate `
-            --individual $individual `
-            --dlinear_xyz_use_autoformer `
-            --dlinear_xyz_top_k_fft 64 `
-            --dlinear_xyz_top_k_corr 4 `
-            --dlinear_xyz_layers_cnt 1 `
-            --dlinear_xyz_layers_cnt_encoder 1 | Tee-Object -FilePath $log_file
+      --no_use_augmentation `
+      --no_use_smoothing `
+        --batch_size $batch_size `
+        --learning_rate $learning_rate `
+        --individual $individual `
+        --dlinear_xyz_use_autoformer `
+        --dlinear_xyz_top_k_fft 64 `
+        --dlinear_xyz_top_k_corr 4 `
+        --dlinear_xyz_layers_cnt 1 `
+        --dlinear_xyz_layers_cnt_encoder 1 | Tee-Object -FilePath $log_file
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Training completed: $log_file" -ForegroundColor Green

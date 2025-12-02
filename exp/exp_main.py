@@ -29,7 +29,7 @@ import time
 
 import warnings
 import matplotlib.pyplot as plt
-import numpy as np
+from sklearn.linear_model import LinearRegression
 
 warnings.filterwarnings('ignore')
 
@@ -367,6 +367,12 @@ class Exp_Main(Exp_Basic):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
+        if getattr(self.args, 'check_self_correlation', False):
+            try:
+                self._check_self_correlation(preds, inputx, folder_path)
+            except Exception as exc:
+                print(f'偏相关分析失败: {exc}')
+
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
 
         # 通道维度误差用于逐通道指标输出
@@ -453,6 +459,145 @@ class Exp_Main(Exp_Basic):
         # np.save(folder_path + 'true.npy', trues)
         # np.save(folder_path + 'x.npy', inputx)
         return
+
+    def _check_self_correlation(self, preds, inputs, folder_path):
+        channel_index = int(getattr(self.args, 'self_corr_channel', 0))
+        if channel_index < 0 or channel_index >= preds.shape[-1]:
+            raise ValueError(
+                f'self_corr_channel={channel_index} 超出范围, 合法范围为 0 到 {preds.shape[-1] - 1}'
+            )
+
+        series_matrix = preds[:, :, channel_index].astype(np.float64)
+        inputs = inputs.astype(np.float64)
+
+        if series_matrix.shape[0] < 2:
+            raise ValueError('样本数量不足，无法计算 DML 偏相关矩阵')
+
+        if inputs.shape[0] != series_matrix.shape[0]:
+            raise ValueError(
+                f'预测样本数 {series_matrix.shape[0]} 与输入样本数 {inputs.shape[0]} 不匹配'
+            )
+
+        if inputs.ndim != 3:
+            raise ValueError('输入张量必须为三维: [samples, seq_len, channels]')
+        if channel_index >= inputs.shape[-1]:
+            raise ValueError(
+                f'输入张量的通道数为 {inputs.shape[-1]}，无法索引 channel {channel_index}'
+            )
+
+        base_series = inputs[:, -self.args.seq_len:, channel_index]
+        design_matrix = base_series.reshape(base_series.shape[0], -1)
+
+        corr_matrix = self._compute_dml_partial_correlation(series_matrix, design_matrix)
+
+        matrix_path = os.path.join(folder_path, f'self_correlation_channel{channel_index}.csv')
+        np.savetxt(matrix_path, corr_matrix, delimiter=',')
+
+        heatmap_path = os.path.join(folder_path, f'self_correlation_channel{channel_index}.png')
+        self._plot_correlation_heatmap(corr_matrix, heatmap_path, channel_index, title_suffix='原始')
+
+        # FFT-based analysis (real & imaginary parts)
+        fft_complex = np.fft.fft(series_matrix, axis=1)
+        fft_real = np.real(fft_complex)
+        fft_imag = np.imag(fft_complex)
+
+        corr_matrix_fft_real = self._compute_dml_partial_correlation(fft_real, design_matrix)
+        corr_matrix_fft_imag = self._compute_dml_partial_correlation(fft_imag, design_matrix)
+
+        fft_real_matrix_path = os.path.join(folder_path, f'self_correlation_fft_real_channel{channel_index}.csv')
+        np.savetxt(fft_real_matrix_path, corr_matrix_fft_real, delimiter=',')
+        fft_imag_matrix_path = os.path.join(folder_path, f'self_correlation_fft_imag_channel{channel_index}.csv')
+        np.savetxt(fft_imag_matrix_path, corr_matrix_fft_imag, delimiter=',')
+
+        fft_real_heatmap_path = os.path.join(folder_path, f'self_correlation_fft_real_channel{channel_index}.png')
+        self._plot_correlation_heatmap(corr_matrix_fft_real, fft_real_heatmap_path, channel_index, title_suffix='FFT-Real')
+        fft_imag_heatmap_path = os.path.join(folder_path, f'self_correlation_fft_imag_channel{channel_index}.png')
+        self._plot_correlation_heatmap(corr_matrix_fft_imag, fft_imag_heatmap_path, channel_index, title_suffix='FFT-Imag')
+
+        scatter_real_path = os.path.join(folder_path, f'self_correlation_comparison_fft_real_channel{channel_index}.png')
+        self._plot_correlation_scatter(corr_matrix, corr_matrix_fft_real, scatter_real_path, channel_index, suffix='FFT-Real')
+        scatter_imag_path = os.path.join(folder_path, f'self_correlation_comparison_fft_imag_channel{channel_index}.png')
+        self._plot_correlation_scatter(corr_matrix, corr_matrix_fft_imag, scatter_imag_path, channel_index, suffix='FFT-Imag')
+
+        print(f'已保存 DML 偏相关矩阵至: {matrix_path}')
+        print(f'已保存 DML 偏相关热力图至: {heatmap_path}')
+        print(f'已保存 FFT 实部偏相关矩阵至: {fft_real_matrix_path}')
+        print(f'已保存 FFT 实部偏相关热力图至: {fft_real_heatmap_path}')
+        print(f'已保存 FFT 虚部偏相关矩阵至: {fft_imag_matrix_path}')
+        print(f'已保存 FFT 虚部偏相关热力图至: {fft_imag_heatmap_path}')
+        print(f'已保存原始-FFT 实部偏相关散点图至: {scatter_real_path}')
+        print(f'已保存原始-FFT 虚部偏相关散点图至: {scatter_imag_path}')
+
+    def _compute_dml_partial_correlation(self, series_matrix, design_matrix):
+        samples, horizon = series_matrix.shape
+        residuals = np.zeros_like(series_matrix, dtype=np.float64)
+        design_matrix = np.asarray(design_matrix, dtype=np.float64)
+
+        if design_matrix.shape[0] != samples:
+            raise ValueError('Design matrix 行数必须与样本数一致')
+
+        for idx in range(horizon):
+            y = series_matrix[:, idx]
+            model = LinearRegression()
+            model.fit(design_matrix, y)
+            residuals[:, idx] = y - model.predict(design_matrix)
+
+        corr_matrix = np.eye(horizon, dtype=np.float64)
+        for i in range(horizon):
+            for j in range(i, horizon):
+                t_res = residuals[:, j]
+                y_res = residuals[:, i]
+                denom = np.dot(t_res, t_res)
+
+                if denom <= 1e-12:
+                    beta = 0.0
+                else:
+                    beta = np.dot(t_res, y_res) / denom
+
+                corr_matrix[i, j] = beta
+
+        return corr_matrix
+
+    def _plot_correlation_heatmap(self, corr_matrix, file_path, channel_index, title_suffix):
+        finite_vals = corr_matrix[np.isfinite(corr_matrix)]
+        vmax = np.max(np.abs(finite_vals)) if finite_vals.size > 0 else 1.0
+        if vmax <= 1e-6:
+            vmax = 1.0
+
+        plt.figure(figsize=(8, 6))
+        im = plt.imshow(corr_matrix, cmap='RdBu_r', origin='lower', vmin=-vmax, vmax=vmax)
+        plt.colorbar(im, fraction=0.046, pad=0.04)
+        plt.title(f'DML 偏相关热力图 ({title_suffix}, channel {channel_index})')
+        plt.xlabel('时间步 j')
+        plt.ylabel('时间步 i')
+        plt.tight_layout()
+        plt.savefig(file_path, dpi=300)
+        plt.close()
+
+    def _plot_correlation_scatter(self, corr_matrix, corr_matrix_fft, file_path, channel_index, suffix=''):
+        if corr_matrix.shape != corr_matrix_fft.shape:
+            raise ValueError('原始与 FFT 矩阵形状不一致，无法绘制散点图')
+
+        tri_idx = np.triu_indices_from(corr_matrix, k=1)
+        original_vals = corr_matrix[tri_idx]
+        fft_vals = corr_matrix_fft[tri_idx]
+
+        plt.figure(figsize=(6, 6))
+        plt.scatter(original_vals, fft_vals, alpha=0.6, edgecolors='none')
+        max_val = max(np.max(np.abs(original_vals)), np.max(np.abs(fft_vals)), 1e-6)
+        limit = max_val * 1.05
+        plt.plot([-limit, limit], [-limit, limit], 'k--', linewidth=1)
+        plt.xlim(-limit, limit)
+        plt.ylim(-limit, limit)
+        plt.xlabel('原始偏相关系数')
+        ylabel = 'FFT 偏相关系数' if not suffix else f'{suffix} 偏相关系数'
+        plt.ylabel(ylabel)
+        title_suffix = suffix if suffix else 'FFT'
+        plt.title(f'原始 vs {title_suffix} 偏相关散点图 (channel {channel_index})')
+        plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.5)
+        plt.tight_layout()
+        plt.savefig(file_path, dpi=300)
+        plt.close()
 
     def predict(self, setting, load=False):
         pred_data, pred_loader = self._get_data(flag='pred')

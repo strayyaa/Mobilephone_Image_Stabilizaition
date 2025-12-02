@@ -28,9 +28,11 @@ if __name__ == '__main__':
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
     parser.add_argument('--use_augmentation', action='store_true', help='use data augmentation for training set', default=True)
+    parser.add_argument('--no_use_augmentation',dest='use_augmentation',action='store_false')
     parser.add_argument('--jitter_sigma', type=float, default=0.05, help='std dev for jittering augmentation')
     parser.add_argument('--scale_alpha', type=float, default=0.1, help='range for scaling augmentation')
     parser.add_argument('--use_smoothing', action='store_true', help='use data smoothing for training set', default=True)
+    parser.add_argument('--no_use_smoothing',dest='use_smoothing',action='store_false')
     parser.add_argument('--downsample_rate', type=int, default=2, help='downsample_rate')
     
 
@@ -38,6 +40,12 @@ if __name__ == '__main__':
     parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
     parser.add_argument('--label_len', type=int, default=48, help='start token length')
     parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
+
+    # evaluation extras
+    parser.add_argument('--check_self_correlation', action='store_true', default=False,
+                        help='compute DML-based self correlation on test predictions')
+    parser.add_argument('--self_corr_channel', type=int, default=0,
+                        help='output channel index for self-correlation analysis')
 
 
     # DLinear variants

@@ -1,0 +1,114 @@
+Args in experiment:
+Namespace(random_seed=2021, is_training=1, model_id='IMUDataFFT_200_200', model='PatchTST', data='imu', root_path='../../dataset/', data_path='imu_data_with_jitter_reduced.xlsx', features='M', target='yaw', freq='h', use_fft_enhance_data=True, fft_low_freq_ratio=0.005, fft_high_freq_ratio=0.01, fft_cutoff_ratio=0.02, fft_low_freq_boost=1.2, fft_mid_freq_boost=1.0, fft_high_freq_suppress=0.3, fft_residual_ratio=0.7, fft_reflection_pad=32, use_moe=False, moe_low_freq_ratio=0.005, moe_high_freq_ratio=0.01, moe_cutoff_ratio=0.02, moe_frequency_residual_ratio=0.7, moe_modal_residual_ratio=0.7, moe_temperature=1.0, moe_frequency_experts=3, moe_frequency_topk=0, moe_energy_norm='density', use_freqmoe=False, freqmoe_experts=3, freqmoe_use_norm=1, checkpoints='./checkpoints/', use_augmentation=True, jitter_sigma=0.08, scale_alpha=0.1, use_smoothing=True, downsample_rate=10, seq_len=200, label_len=48, pred_len=200, check_self_correlation=True, self_corr_channel=2, dlinear_xyz_use_pos_encoding=False, dlinear_xyz_use_arima_trend=False, dlinear_xyz_use_arima_trend_comp=False, dlinear_xyz_use_fft_promote_feature=False, dlinear_xyz_use_fft_plus_feature=False, dlinear_xyz_use_ifft_plus=False, dlinear_xyz_use_merge=False, dlinear_xyz_use_broader_individual=False, dlinear_xyz_use_mix_linear=False, dlinear_xyz_use_autoformer=False, dlinear_xyz_use_full_autoformer=False, dlinear_xyz_top_k_fft=64, dlinear_xyz_top_k_corr=4, dlinear_xyz_layers_cnt=1, dlinear_xyz_layers_cnt_encoder=1, dlinear_xyz_arima_order='(2,1,0)', dlinear_xyz_arima_moving_avg=5, dlinear_xyz_merge_rate_init=0.3, dlinear_xyz_merge_between_init=1.0, fc_dropout=0.1, head_dropout=0.0, patch_len=16, stride=1, padding_patch='end', revin=1, affine=0, subtract_last=0, decomposition=0, kernel_size=25, individual=1, arima_order_p=2, arima_order_d=0, arima_order_q=1, arima_maxiter=200, arima_enforce_stationarity=False, arima_enforce_invertibility=False, arima_fallback_window=5, prophet_changepoint_prior_scale=0.05, prophet_seasonality_mode='additive', prophet_growth='linear', prophet_n_changepoints=25, prophet_yearly_seasonality='auto', prophet_weekly_seasonality='auto', prophet_daily_seasonality='auto', prophet_fallback_window=5, embed_type=0, enc_in=3, dec_in=3, c_out=3, d_model=64, n_heads=2, e_layers=2, d_layers=1, d_ff=128, moving_avg=25, factor=1, distil=True, dropout=0.3, embed='timeF', activation='gelu', output_attention=False, do_predict=False, stem_ratio=6, downsample_ratio=2, ffn_ratio=2, patch_size=16, patch_stride=8, num_blocks=[1, 1, 1, 1], large_size=[31, 29, 27, 13], small_size=[5, 5, 5, 5], dims=[256, 256, 256, 256], small_kernel_merged=False, use_multi_scale=1, num_workers=0, itr=1, train_epochs=10, batch_size=32, patience=5, learning_rate=0.0001, des='ExpFFT', loss='mse', lradj='type3', pct_start=0.3, use_amp=False, rec_lambda=1.0, auxi_lambda=0.0, use_gpu=False, gpu=0, use_multi_gpu=False, devices='0,1,2,3', test_flop=False)
+Use CPU
+Using RevIN
+Using individual heads for each variable
+FFT增强已启用：模型输入将在运行时进行频域加权，评估保持在原始数据空间。
+>>>>>>>start training : IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0>>>>>>>>>>>>>>>>>>>>>>>>>>
+使用原始数据文件，并在训练/推理阶段在线执行FFT增强。
+已应用use_augmentation
+已应用use_smoothing
+当前样本类型: train, 该类型样本数量: 6720
+使用原始数据文件，并在训练/推理阶段在线执行FFT增强。
+已应用use_smoothing
+当前样本类型: val, 该类型样本数量: 1835
+使用原始数据文件，并在训练/推理阶段在线执行FFT增强。
+已应用use_smoothing
+当前样本类型: test, 该类型样本数量: 818
+train_epoch: 10
+	iters: 100, epoch: 1 | loss: 0.6839088
+	speed: 0.1624s/iter; left time: 324.9007s
+	iters: 200, epoch: 1 | loss: 0.6136854
+	speed: 0.1670s/iter; left time: 317.4358s
+Epoch: 1 cost time: 34.726608753204346
+Epoch: 1 | Train Loss: 0.7452778 Vali Loss: 1.2050365 Test Loss: 0.8531042
+Validation loss decreased (inf --> 1.205037).  Saving model ...
+Updating learning rate to 0.0001
+train_epoch: 10
+	iters: 100, epoch: 2 | loss: 0.6001438
+	speed: 0.2298s/iter; left time: 411.6373s
+	iters: 200, epoch: 2 | loss: 0.7190983
+	speed: 0.1678s/iter; left time: 283.7361s
+Epoch: 2 cost time: 35.66057515144348
+Epoch: 2 | Train Loss: 0.6579130 Vali Loss: 1.1975465 Test Loss: 0.8679516
+Validation loss decreased (1.205037 --> 1.197546).  Saving model ...
+Updating learning rate to 0.0001
+train_epoch: 10
+	iters: 100, epoch: 3 | loss: 0.8361967
+	speed: 0.2314s/iter; left time: 365.8532s
+	iters: 200, epoch: 3 | loss: 0.5897087
+	speed: 0.1726s/iter; left time: 255.5506s
+Epoch: 3 cost time: 36.09178328514099
+Epoch: 3 | Train Loss: 0.6437842 Vali Loss: 1.1708869 Test Loss: 0.8901247
+Validation loss decreased (1.197546 --> 1.170887).  Saving model ...
+Updating learning rate to 0.0001
+train_epoch: 10
+	iters: 100, epoch: 4 | loss: 0.5303618
+	speed: 0.2291s/iter; left time: 314.1638s
+	iters: 200, epoch: 4 | loss: 0.6023889
+	speed: 0.1706s/iter; left time: 216.8777s
+Epoch: 4 cost time: 35.62133812904358
+Epoch: 4 | Train Loss: 0.6333529 Vali Loss: 1.1735585 Test Loss: 0.9029433
+EarlyStopping counter: 1 out of 5
+Updating learning rate to 9e-05
+train_epoch: 10
+	iters: 100, epoch: 5 | loss: 0.6630371
+	speed: 0.2319s/iter; left time: 269.2219s
+	iters: 200, epoch: 5 | loss: 0.5991241
+	speed: 0.1701s/iter; left time: 180.5155s
+Epoch: 5 cost time: 35.79625701904297
+Epoch: 5 | Train Loss: 0.6247378 Vali Loss: 1.1823443 Test Loss: 0.9080845
+EarlyStopping counter: 2 out of 5
+Updating learning rate to 8.1e-05
+train_epoch: 10
+	iters: 100, epoch: 6 | loss: 0.6578360
+	speed: 0.2319s/iter; left time: 220.5396s
+	iters: 200, epoch: 6 | loss: 0.6580223
+	speed: 0.1725s/iter; left time: 146.7993s
+Epoch: 6 cost time: 36.15684509277344
+Epoch: 6 | Train Loss: 0.6170298 Vali Loss: 1.1928363 Test Loss: 0.8944440
+EarlyStopping counter: 3 out of 5
+Updating learning rate to 7.290000000000001e-05
+train_epoch: 10
+	iters: 100, epoch: 7 | loss: 0.6080441
+	speed: 0.2302s/iter; left time: 170.5759s
+	iters: 200, epoch: 7 | loss: 0.5913774
+	speed: 0.1729s/iter; left time: 110.8271s
+Epoch: 7 cost time: 35.93839383125305
+Epoch: 7 | Train Loss: 0.6112428 Vali Loss: 1.1963505 Test Loss: 0.9155755
+EarlyStopping counter: 4 out of 5
+Updating learning rate to 6.561e-05
+train_epoch: 10
+	iters: 100, epoch: 8 | loss: 0.5539942
+	speed: 0.2334s/iter; left time: 123.9468s
+	iters: 200, epoch: 8 | loss: 0.7266272
+	speed: 0.1711s/iter; left time: 73.7445s
+Epoch: 8 cost time: 36.114707946777344
+Epoch: 8 | Train Loss: 0.6061859 Vali Loss: 1.1946094 Test Loss: 0.9223610
+EarlyStopping counter: 5 out of 5
+Early stopping
+损失历史已保存至: ./checkpoints/IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0/loss_history.csv
+损失曲线图已保存至: ./checkpoints/IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0/loss_curve.pdf
+>>>>>>>testing : IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+使用原始数据文件，并在训练/推理阶段在线执行FFT增强。
+已应用use_smoothing
+当前样本类型: test, 该类型样本数量: 818
+使用原始数据文件，并在训练/推理阶段在线执行FFT增强。
+已应用use_smoothing
+当前样本类型: val, 该类型样本数量: 1835
+已保存 DML 偏相关矩阵至: ./results/IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0/self_correlation_channel2.csv
+已保存 DML 偏相关热力图至: ./results/IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0/self_correlation_channel2.png
+已保存 FFT 实部偏相关矩阵至: ./results/IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0/self_correlation_fft_real_channel2.csv
+已保存 FFT 实部偏相关热力图至: ./results/IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0/self_correlation_fft_real_channel2.png
+已保存 FFT 虚部偏相关矩阵至: ./results/IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0/self_correlation_fft_imag_channel2.csv
+已保存 FFT 虚部偏相关热力图至: ./results/IMUDataFFT_200_200_PatchTST_imu_ftM_sl200_ll48_pl200_dm64_nh2_el2_dl1_df128_fc1_ebtimeF_dtTrue_ExpFFT_0/self_correlation_fft_imag_channel2.png
+标准化后 - mse:0.8901247978210449, mae:0.6363049745559692, rse:0.5066978931427002
+标准化后 - x: mse=1.137076, mae=0.862287
+标准化后 - y: mse=0.003286, mae=0.045978
+标准化后 - z: mse=1.529940, mae=1.000641
+preds_denorm shape: (800, 200, 3)
+反标准化后 - mse:7.373522385023534e-05, mae:0.005299472250044346, rse:0.04415513202548027
+反标准化后 - x: mse=0.000008, mae=0.002353
+反标准化后 - y: mse=0.000207, mae=0.011526
+反标准化后 - z: mse=0.000006, mae=0.002020
+已生成 5 个样本的反标准化后可视化图片。一共有800个样本。

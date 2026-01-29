@@ -47,7 +47,6 @@ $moe_cutoff_ratio = 0.02
 $moe_freq_residual = 0.7
 $moe_modal_residual = 0.7
 $moe_temperature = 0.85
-$moe_max_debug = 8
 $moe_frequency_experts = 9
 $moe_frequency_topk = 3
 $moe_energy_norm = "density"
@@ -84,8 +83,7 @@ foreach ($pred_len in $pred_lengths) {
       --moe_temperature $moe_temperature `
     --moe_frequency_experts $moe_frequency_experts `
     --moe_frequency_topk $moe_frequency_topk `
-    --moe_energy_norm $moe_energy_norm `
-      --moe_max_debug $moe_max_debug `
+        --moe_energy_norm $moe_energy_norm `
       --features M `
       --seq_len $seq_len `
       --label_len 48 `

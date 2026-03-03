@@ -118,6 +118,7 @@ foreach ($pred_len in $pred_lengths) {
       --auxi_lambda $auxi_lambda `
       --rec_lambda $rec_lambda `
       --target $target `
+      --output_data_print `
       --self_corr_channel 2 `
             2>&1 | Tee-Object -FilePath $log_file
 

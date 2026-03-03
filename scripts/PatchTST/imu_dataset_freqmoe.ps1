@@ -105,6 +105,7 @@ foreach ($pred_len in $pred_lengths) {
         --rec_lambda $rec_lambda `
         --target $target `
         --self_corr_channel 2 `
+        --output_data_print `
                     2>&1 | Tee-Object -FilePath $log_file
 
     if ($LASTEXITCODE -eq 0) {

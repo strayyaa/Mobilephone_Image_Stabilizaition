@@ -18,6 +18,7 @@ from utils.metrics import metric
 from utils.my_losses import frequency_loss
 from utils.fft_enhancement import FFTEnhancer
 from utils.moe_enhancement import MoEEnhancer
+from utils.freqMOE_enhancement import FreqMoEEnhancer
 
 import numpy as np
 import torch
@@ -27,7 +28,6 @@ from torch.optim import lr_scheduler
 import pandas as pd
 
 import os
-import json
 import time
 
 import warnings
@@ -41,7 +41,8 @@ class Exp_Main(Exp_Basic):
         super(Exp_Main, self).__init__(args)
         self.fft_enhancer = None
         self.moe_enhancer = None
-        self.moe_debug_records = []
+        self.freq_moe_enhancer = None
+        self.freqmoe_stats = None
         if getattr(self.args, 'use_fft_enhance_data', False):
             self.fft_enhancer = FFTEnhancer(
                 low_freq_ratio=self.args.fft_low_freq_ratio,
@@ -67,6 +68,16 @@ class Exp_Main(Exp_Basic):
                 frequency_energy_norm=self.args.moe_energy_norm,
             ).to(self.device)
             print('MoE增强已启用：实时融合 FFT/DCT/原始模态。')
+
+        if getattr(self.args, 'use_freqmoe', False):
+            self.freq_moe_enhancer = FreqMoEEnhancer(
+                seq_len=self.args.seq_len,
+                num_experts=self.args.freqmoe_experts,
+                use_norm=bool(self.args.freqmoe_use_norm),
+            ).to(self.device)
+            print('freqMoE增强已启用：频域专家动态重加权。')
+            self._reset_freqmoe_stats()
+            self._log_freqmoe_initial_bounds()
 
     def _build_model(self):
         model_dict = {
@@ -102,46 +113,87 @@ class Exp_Main(Exp_Basic):
         enhanced_tensor = torch.from_numpy(enhanced).to(tensor.device)
         return enhanced_tensor.type_as(tensor)
 
-    def _apply_moe(self, tensor, stage):
+    def _apply_moe(self, tensor):
         if self.moe_enhancer is None or tensor is None:
             return tensor
-        need_stats = self.args.moe_max_debug > len(self.moe_debug_records)
-        enhanced, stats = self.moe_enhancer(tensor, collect_stats=need_stats)
-        if need_stats and stats:
-            self._record_moe_debug(
-                stage,
-                tensor.detach().cpu().numpy(),
-                enhanced.detach().cpu().numpy(),
-                stats,
-            )
-        return enhanced
+        return self.moe_enhancer(tensor)
 
-    def _record_moe_debug(self, stage, original_np, enhanced_np, stats):
-        if self.args.moe_max_debug <= 0:
+    def _apply_freq_moe(self, tensor):
+        if self.freq_moe_enhancer is None or tensor is None:
+            return tensor
+        output, weights, bounds = self.freq_moe_enhancer(tensor)
+        if weights is not None and weights.dim() > 2:
+            weights = weights.reshape(weights.shape[0], -1)
+        if self.model is not None and self.model.training:
+            self._accumulate_freqmoe_stats(weights, bounds)
+        return output
+
+    def _reset_freqmoe_stats(self):
+        if self.freq_moe_enhancer is None:
+            self.freqmoe_stats = None
             return
-        if len(self.moe_debug_records) >= self.args.moe_max_debug:
-            self.moe_debug_records.pop(0)
-        sample_idx = min(0, original_np.shape[0] - 1)
-        record = {
-            'stage': stage,
-            'fft_weights': stats[sample_idx]['fft_weights'],
-            'dct_weights': stats[sample_idx]['dct_weights'],
-            'modal_weights': stats[sample_idx]['modal_weights'],
-            'original_preview': original_np[sample_idx, :64, 0].tolist() if original_np.shape[1] >= 1 else [],
-            'enhanced_preview': enhanced_np[sample_idx, :64, 0].tolist() if enhanced_np.shape[1] >= 1 else [],
+        self.freqmoe_stats = {
+            'sum_weights': None,
+            'sample_count': 0,
+            'bounds': None,
+            'freq_len': self.freq_moe_enhancer.freq_len,
         }
-        self.moe_debug_records.append(record)
 
-    def _prepare_model_inputs(self, batch_x, dec_inp, stage):
+    def _accumulate_freqmoe_stats(self, weights, bounds):
+        if self.freqmoe_stats is None:
+            return
+        stats = self.freqmoe_stats
+        weights_cpu = weights.detach().to('cpu')
+        if weights_cpu.dim() == 1:
+            weights_cpu = weights_cpu.unsqueeze(0)
+        if stats['sum_weights'] is None:
+            stats['sum_weights'] = torch.zeros(weights_cpu.shape[-1])
+        stats['sum_weights'] += weights_cpu.sum(dim=0)
+        stats['sample_count'] += weights_cpu.shape[0]
+        stats['bounds'] = bounds.detach().to('cpu').long()
+
+    def _finalize_freqmoe_stats(self):
+        if self.freqmoe_stats is None:
+            return
+        stats = self.freqmoe_stats
+        if stats['sum_weights'] is None or stats['sample_count'] == 0 or stats['bounds'] is None:
+            print('freqMoE 未收集到有效的专家统计数据。')
+            return
+        avg_weights = (stats['sum_weights'] / stats['sample_count']).tolist()
+        bounds = stats['bounds'].tolist()
+        freq_len = max(1, int(stats['freq_len']))
+        expert_info = []
+        for idx, weight in enumerate(avg_weights):
+            start = int(bounds[idx]) if idx < len(bounds) else 0
+            end = int(bounds[idx + 1]) if idx + 1 < len(bounds) else freq_len
+            coverage = (end - start) / freq_len
+            expert_info.append((idx, weight, coverage, start, end))
+        expert_info.sort(key=lambda item: item[1], reverse=True)
+        print('freqMoE 训练结束专家统计（按平均权重降序）:')
+        for idx, weight, coverage, start, end in expert_info:
+            print(
+                f'  专家{idx:02d}: 平均权重={weight:.4f}, 覆盖比例={coverage:.4f}, 频段=[{start}, {end})'
+            )
+
+    def _log_freqmoe_initial_bounds(self):
+        if self.freq_moe_enhancer is None:
+            return
+        segments = self.freq_moe_enhancer.describe_expert_bounds()
+        if not segments:
+            return
+        print('freqMoE 初始专家频段划分:')
+        for idx, start, end, coverage in segments:
+            print(f'  专家{idx:02d}: 频段=[{start}, {end}), 覆盖比例={coverage:.4f}')
+
+    # 准备模型输入，包括可能的FFT/MoE增强
+    def _prepare_model_inputs(self, batch_x, dec_inp):
+        if self.freq_moe_enhancer is not None and getattr(self.args, 'use_freqmoe', False):
+            batch_final = self._apply_freq_moe(batch_x)
+            return batch_final, dec_inp
+
         if self.moe_enhancer is not None and getattr(self.args, 'use_moe', False):
-            batch_final = self._apply_moe(batch_x, stage)
-            dec_final = dec_inp.clone()
-            label_len = min(self.args.label_len, dec_inp.shape[1])
-            if label_len > 0:
-                dec_segment = dec_inp[:, :label_len, :]
-                dec_segment_moe = self._apply_moe(dec_segment, stage)
-                dec_final[:, :label_len, :] = dec_segment_moe
-            return batch_final, dec_final
+            batch_final = self._apply_moe(batch_x)
+            return batch_final, dec_inp
 
         if self.fft_enhancer is not None:
             batch_x_fft = self._fft_enhance_tensor(batch_x)
@@ -157,6 +209,8 @@ class Exp_Main(Exp_Basic):
         params = list(self.model.parameters())
         if self.moe_enhancer is not None:
             params += list(self.moe_enhancer.parameters())
+        if self.freq_moe_enhancer is not None:
+            params += list(self.freq_moe_enhancer.parameters())
         model_optim = optim.Adam(params, lr=self.args.learning_rate)
         return model_optim
 
@@ -181,9 +235,13 @@ class Exp_Main(Exp_Basic):
         total_loss = [] # 用于收集每个batch的损失
         self.model.eval()  # 将模型设置为评估模式，关闭 dropout 和 batch normalization 等训练专用层
         moe_prev_mode = None
+        freq_prev_mode = None
         if self.moe_enhancer is not None:
             moe_prev_mode = self.moe_enhancer.training
             self.moe_enhancer.train(False)
+        if self.freq_moe_enhancer is not None:
+            freq_prev_mode = self.freq_moe_enhancer.training
+            self.freq_moe_enhancer.train(False)
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
                 batch_x = batch_x.float().to(self.device)
@@ -196,7 +254,7 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 # encoder - decoder
-                batch_x_fft, dec_inp_fft = self._prepare_model_inputs(batch_x, dec_inp, stage='vali')
+                batch_x_fft, dec_inp_fft = self._prepare_model_inputs(batch_x, dec_inp)
                 if self.args.use_amp:  
                     # 混合精度指在深度学习训练或推理过程中，同时使用不同数值精度的数据类型（如 float16 和 float32），以提升计算速度、减少显存占用，同时保持模型精度。
                     with torch.cuda.amp.autocast():
@@ -218,6 +276,8 @@ class Exp_Main(Exp_Basic):
         self.model.train()
         if self.moe_enhancer is not None:
             self.moe_enhancer.train(moe_prev_mode if moe_prev_mode is not None else True)
+        if self.freq_moe_enhancer is not None:
+            self.freq_moe_enhancer.train(freq_prev_mode if freq_prev_mode is not None else True)
         return total_loss
 
 
@@ -226,6 +286,9 @@ class Exp_Main(Exp_Basic):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
+
+        if getattr(self.args, 'use_freqmoe', False):
+            self._reset_freqmoe_stats()
 
         if(self.args.auxi_lambda != 0):
             print("已使用 frequency_loss，auxi_lambda:" + str(self.args.auxi_lambda) + "rec_lambda: " + str(self.args.rec_lambda))
@@ -251,7 +314,7 @@ class Exp_Main(Exp_Basic):
                                             epochs = self.args.train_epochs,
                                             max_lr = self.args.learning_rate)
 
-        # 建议在这里添加：初始化损失记录列表
+        # 初始化损失记录列表
         train_loss_history = []
         vali_loss_history = []
 
@@ -280,7 +343,7 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
 
                 # encoder - decoder
-                batch_x_fft, dec_inp_fft = self._prepare_model_inputs(batch_x, dec_inp, stage='train')
+                batch_x_fft, dec_inp_fft = self._prepare_model_inputs(batch_x, dec_inp)
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
@@ -335,7 +398,7 @@ class Exp_Main(Exp_Basic):
             vali_loss = self.vali(vali_data, vali_loader, criterion)
             test_loss = self.vali(test_data, test_loader, criterion)
 
-            # 建议在这里添加：记录当前 epoch 的损失值
+            # 记录当前 epoch 的损失值
             train_loss_history.append(train_loss)
             vali_loss_history.append(vali_loss)
 
@@ -371,7 +434,7 @@ class Exp_Main(Exp_Basic):
         loss_df.to_csv(csv_path, index=False)
         print(f"损失历史已保存至: {csv_path}")
 
-        # 建议在这里添加：绘制并保存损失曲线图
+        # 绘制并保存损失曲线图
         plt.figure()
         plt.plot(range(1, len(train_loss_history) + 1), train_loss_history, label='Train Loss')
         plt.plot(range(1, len(vali_loss_history) + 1), vali_loss_history, label='Validation Loss')
@@ -386,6 +449,9 @@ class Exp_Main(Exp_Basic):
         plt.savefig(loss_curve_path)
         plt.close() # 释放内存
         print(f"损失曲线图已保存至: {loss_curve_path}")
+
+        if getattr(self.args, 'use_freqmoe', False):
+            self._finalize_freqmoe_stats()
 
         return self.model
 
@@ -407,9 +473,13 @@ class Exp_Main(Exp_Basic):
 
         self.model.eval()
         moe_prev_mode = None
+        freq_prev_mode = None
         if self.moe_enhancer is not None:
             moe_prev_mode = self.moe_enhancer.training
             self.moe_enhancer.train(False)
+        if self.freq_moe_enhancer is not None:
+            freq_prev_mode = self.freq_moe_enhancer.training
+            self.freq_moe_enhancer.train(False)
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
@@ -422,7 +492,7 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 # encoder - decoder
-                batch_x_fft, dec_inp_fft = self._prepare_model_inputs(batch_x, dec_inp, stage='test')
+                batch_x_fft, dec_inp_fft = self._prepare_model_inputs(batch_x, dec_inp)
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
@@ -568,10 +638,103 @@ class Exp_Main(Exp_Basic):
         np.save(folder_path + 'pred.npy', preds)
         # np.save(folder_path + 'true.npy', trues)
         # np.save(folder_path + 'x.npy', inputx)
-        self._dump_moe_debug(setting)
+
+        # 输出完整拼接数据（输入+预测）
+        if getattr(self.args, 'output_data_print', False):
+            try:
+                self._output_concatenated_data(inputx, preds, trues, test_data, folder_path)
+            except Exception as e:
+                print(f'输出拼接数据失败: {e}')
+
         if self.moe_enhancer is not None:
             self.moe_enhancer.train(moe_prev_mode if moe_prev_mode is not None else True)
+        if self.freq_moe_enhancer is not None:
+            self.freq_moe_enhancer.train(freq_prev_mode if freq_prev_mode is not None else True)
         return
+
+    def _output_concatenated_data(self, inputx, preds, trues, test_data, folder_path):
+        """
+        输出连续的预测数据到CSV文件。
+        
+        由于测试集的采样方式是滑动窗口（步长=1），相邻样本的预测区间大部分重叠。
+        为了输出连续的预测序列：
+        - 第一个样本：取完整的 seq_len 输入 + pred_len 预测
+        - 后续样本：只取预测的最后1个时间步（因为每次窗口只滑动1步）
+        
+        这样可以得到一条从测试集起点到终点的连续序列。
+        """
+        num_samples = preds.shape[0]
+        seq_len = inputx.shape[1]
+        pred_len = preds.shape[1]
+        num_channels = preds.shape[-1]
+        channel_labels = ['x', 'y', 'z'] if num_channels == 3 else [f'channel_{i}' for i in range(num_channels)]
+
+        # 反标准化（如果支持）
+        if hasattr(test_data, 'inverse_transform'):
+            input_shape = inputx.shape
+            inputx_denorm = test_data.inverse_transform(inputx.reshape(-1, input_shape[-1])).reshape(input_shape)
+            preds_denorm = test_data.inverse_transform(preds.reshape(-1, num_channels)).reshape(preds.shape)
+            trues_denorm = test_data.inverse_transform(trues.reshape(-1, num_channels)).reshape(trues.shape)
+            use_denorm = True
+        else:
+            inputx_denorm = inputx
+            preds_denorm = preds
+            trues_denorm = trues
+            use_denorm = False
+
+        # 构建连续序列
+        # 第一个样本的输入部分（seq_len 个时间步）
+        continuous_input = inputx_denorm[0, :, :]  # [seq_len, channels]
+        
+        # 预测部分：第一个样本取完整 pred_len，后续样本只取最后1步
+        # 总预测长度 = pred_len + (num_samples - 1) * 1
+        continuous_pred = []
+        continuous_true = []
+        
+        # 第一个样本的完整预测
+        continuous_pred.append(preds_denorm[0, :, :])  # [pred_len, channels]
+        continuous_true.append(trues_denorm[0, :, :])
+        
+        # 后续样本只取最后一个时间步
+        for i in range(1, num_samples):
+            continuous_pred.append(preds_denorm[i, -1:, :])  # [1, channels]
+            continuous_true.append(trues_denorm[i, -1:, :])
+        
+        continuous_pred = np.concatenate(continuous_pred, axis=0)  # [pred_len + num_samples - 1, channels]
+        continuous_true = np.concatenate(continuous_true, axis=0)
+
+        # 生成CSV数据
+        all_data = []
+        total_input_len = continuous_input.shape[0]
+        total_pred_len = continuous_pred.shape[0]
+        
+        # 输入部分
+        for t in range(total_input_len):
+            row = {'global_time_step': t, 'phase': 'input'}
+            for ch_idx, ch_label in enumerate(channel_labels):
+                row[f'{ch_label}_value'] = continuous_input[t, ch_idx]
+                row[f'{ch_label}_true'] = continuous_input[t, ch_idx]
+                row[f'{ch_label}_pred'] = np.nan
+            all_data.append(row)
+        
+        # 预测部分
+        for t in range(total_pred_len):
+            row = {'global_time_step': total_input_len + t, 'phase': 'prediction'}
+            for ch_idx, ch_label in enumerate(channel_labels):
+                row[f'{ch_label}_value'] = continuous_pred[t, ch_idx]
+                row[f'{ch_label}_true'] = continuous_true[t, ch_idx]
+                row[f'{ch_label}_pred'] = continuous_pred[t, ch_idx]
+            all_data.append(row)
+
+        # 保存为CSV
+        df = pd.DataFrame(all_data)
+        suffix = '_denorm' if use_denorm else '_norm'
+        csv_path = os.path.join(folder_path, f'continuous_prediction{suffix}.csv')
+        df.to_csv(csv_path, index=False)
+        
+        print(f'已输出连续预测数据至: {csv_path}')
+        print(f'  总长度: {total_input_len} (输入) + {total_pred_len} (预测) = {total_input_len + total_pred_len}')
+        print(f'  原始样本数: {num_samples}, seq_len: {seq_len}, pred_len: {pred_len}')
 
     def _check_self_correlation(self, preds, inputs, folder_path):
         channel_index = int(getattr(self.args, 'self_corr_channel', 0))
@@ -703,9 +866,13 @@ class Exp_Main(Exp_Basic):
 
         self.model.eval()
         moe_prev_mode = None
+        freq_prev_mode = None
         if self.moe_enhancer is not None:
             moe_prev_mode = self.moe_enhancer.training
             self.moe_enhancer.train(False)
+        if self.freq_moe_enhancer is not None:
+            freq_prev_mode = self.freq_moe_enhancer.training
+            self.freq_moe_enhancer.train(False)
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(pred_loader):
                 batch_x = batch_x.float().to(self.device)
@@ -717,7 +884,7 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.zeros([batch_y.shape[0], self.args.pred_len, batch_y.shape[2]]).float().to(batch_y.device)
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 # encoder - decoder
-                batch_x_fft, dec_inp_fft = self._prepare_model_inputs(batch_x, dec_inp, stage='predict')
+                batch_x_fft, dec_inp_fft = self._prepare_model_inputs(batch_x, dec_inp)
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = self._forward_model(batch_x_fft, batch_x_mark, dec_inp_fft, batch_y_mark)
@@ -735,18 +902,10 @@ class Exp_Main(Exp_Basic):
             os.makedirs(folder_path)
 
         np.save(folder_path + 'real_prediction.npy', preds)
-        self._dump_moe_debug(setting)
         if self.moe_enhancer is not None:
             self.moe_enhancer.train(moe_prev_mode if moe_prev_mode is not None else True)
+        if self.freq_moe_enhancer is not None:
+            self.freq_moe_enhancer.train(freq_prev_mode if freq_prev_mode is not None else True)
 
         return
 
-    def _dump_moe_debug(self, setting):
-        if not self.moe_debug_records:
-            return
-        folder_path = os.path.join('./results/', setting)
-        os.makedirs(folder_path, exist_ok=True)
-        debug_path = os.path.join(folder_path, 'moe_debug.json')
-        with open(debug_path, 'w', encoding='utf-8') as f:
-            json.dump(self.moe_debug_records, f, ensure_ascii=False, indent=2)
-        self.moe_debug_records.clear()

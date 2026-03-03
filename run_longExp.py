@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
+    # FFT data enhancement
     parser.add_argument('--use_fft_enhance_data', action='store_true', default=False,
                         help='在训练/推理阶段对输入序列执行FFT增强（保持原始数据用于评估）。')
     parser.add_argument('--fft_low_freq_ratio', type=float, default=0.25, help='FFT增强：低频阈值占比')
@@ -36,6 +37,8 @@ if __name__ == '__main__':
     parser.add_argument('--fft_high_freq_suppress', type=float, default=0.2, help='FFT增强：高频抑制')
     parser.add_argument('--fft_residual_ratio', type=float, default=0.5, help='FFT增强：输出与原始信号的混合比例 (0~1)')
     parser.add_argument('--fft_reflection_pad', type=int, default=32, help='FFT增强：反射填充长度以减轻边界伪影')
+    
+    # MoE增强参数
     parser.add_argument('--use_moe', action='store_true', default=False, help='启用基于频段与模态的MoE数据增强')
     parser.add_argument('--moe_low_freq_ratio', type=float, default=0.005, help='MoE频段划分：低频比例')
     parser.add_argument('--moe_high_freq_ratio', type=float, default=0.01, help='MoE频段划分：中频起始比例')
@@ -46,7 +49,12 @@ if __name__ == '__main__':
     parser.add_argument('--moe_frequency_experts', type=int, default=3, help='FFT/DCT 频域专家数量 (>=3 时自动细分频段)')
     parser.add_argument('--moe_frequency_topk', type=int, default=0, help='保留能量最大的前K个频域专家 (0 表示使用全部)')
     parser.add_argument('--moe_energy_norm', type=str, default='density', help='频域专家能量归一化策略: sum 或 density')
-    parser.add_argument('--moe_max_debug', type=int, default=10, help='每次运行最多保存的MoE调试样本数')
+
+    # freqMoE增强参数
+    parser.add_argument('--use_freqmoe', action='store_true', default=False, help='启用freqMoE频域增强')
+    parser.add_argument('--freqmoe_experts', type=int, default=3, help='freqMoE专家数量')
+    parser.add_argument('--freqmoe_use_norm', type=int, default=1, help='1表示先归一化再还原，0表示直接处理原始信号')
+
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
     parser.add_argument('--use_augmentation', action='store_true', help='use data augmentation for training set', default=True)
     parser.add_argument('--no_use_augmentation',dest='use_augmentation',action='store_false')
@@ -67,6 +75,8 @@ if __name__ == '__main__':
                         help='compute DML-based self correlation on test predictions')
     parser.add_argument('--self_corr_channel', type=int, default=0,
                         help='output channel index for self-correlation analysis')
+    parser.add_argument('--output_data_print', action='store_true', default=False,
+                        help='输出完整的预测数据（输入+预测拼接）到CSV文件')
 
 
     # DLinear variants

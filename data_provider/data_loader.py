@@ -630,3 +630,121 @@ class Dataset_Angle(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+
+
+class Dataset_IMU(Dataset):
+    """
+    使用imu_data_with_jitter_reduced.xlsx中的roll, pitch, yaw三列
+    预测任务：用200条预测200条
+    """
+    def __init__(self, root_path, flag='train', size=None,
+                 features='M', data_path='imu_jitter_only_reduced.xlsx',
+                 target='yaw', scale=True, timeenc=0, freq='h',
+                 use_augmentation=True, jitter_sigma=0.05, scale_alpha=0.1,
+                 use_smoothing=True, downsample_rate=2):
+        # size [seq_len, label_len, pred_len]
+        if size == None:
+            self.seq_len = 200
+            self.label_len = 48
+            self.pred_len = 200
+        else:
+            self.seq_len = size[0]
+            self.label_len = size[1]
+            self.pred_len = size[2]
+
+        assert flag in ['train', 'test', 'val']
+        type_map = {'train': 0, 'val': 1, 'test': 2}
+        self.set_type = type_map[flag]
+
+        self.features = features
+        self.target = target
+        self.scale = scale
+        self.timeenc = timeenc
+        self.freq = freq
+
+        self.angle_columns = ['roll', 'pitch', 'yaw']
+
+        self.use_augmentation = use_augmentation and flag == 'train'
+        self.jitter_sigma = jitter_sigma
+        self.scale_alpha = scale_alpha
+
+        self.use_smoothing = use_smoothing and flag == 'train'
+        self.downsample_rate = downsample_rate
+
+        if self.use_augmentation:
+            print(f"已应用use_augmentation")
+        if use_smoothing:
+            print(f"已应用use_smoothing")
+
+        self.root_path = root_path
+        self.data_path = data_path
+        self.__read_data__()
+
+    def __read_data__(self):
+        self.scaler = StandardScaler()
+        file_path = os.path.join(self.root_path, self.data_path)
+        df_raw = pd.read_excel(file_path)
+
+        missing_cols = [col for col in self.angle_columns if col not in df_raw.columns]
+        if missing_cols:
+            raise ValueError(f"缺少所需的列: {missing_cols}")
+
+        df_data = df_raw[self.angle_columns]
+
+        total_len = len(df_data)
+        train_len = int(total_len * 0.7)
+        val_len = int(total_len * 0.2)
+
+        border1s = [0, train_len - self.seq_len, train_len + val_len - self.seq_len]
+        border2s = [train_len, train_len + val_len, total_len]
+        border1 = border1s[self.set_type]
+        border2 = border2s[self.set_type]
+
+        if self.scale:
+            train_data = df_data.iloc[border1s[0]:border2s[0]]
+            self.scaler.fit(train_data.values)
+            data = self.scaler.transform(df_data.values)
+        else:
+            data = df_data.values
+
+        time_stamps = np.arange(border2 - border1).reshape(-1, 1)
+
+        self.data_x = data[border1:border2]
+        self.data_y = data[border1:border2]
+        self.data_stamp = time_stamps
+
+    def __getitem__(self, index):
+        s_begin = index
+        s_end = s_begin + self.seq_len
+        r_begin = s_end - self.label_len if self.label_len > 0 else s_end
+        r_end = r_begin + self.label_len + self.pred_len
+
+        seq_x = self.data_x[s_begin:s_end]
+        seq_y = self.data_y[r_begin:r_end]
+        seq_x_mark = self.data_stamp[s_begin:s_end]
+        seq_y_mark = self.data_stamp[r_begin:r_end]
+
+        if self.use_smoothing and self.downsample_rate > 1:
+            original_len = len(seq_x)
+            original_index = np.arange(original_len)
+            downsampled_values = seq_x[::self.downsample_rate]
+            downsampled_index = original_index[::self.downsample_rate]
+            interpolated_values = np.zeros_like(seq_x)
+            for i in range(seq_x.shape[1]):
+                interpolated_values[:, i] = np.interp(original_index, downsampled_index, downsampled_values[:, i])
+            seq_x = interpolated_values
+
+        if self.use_augmentation:
+            jitter = np.random.normal(loc=0., scale=self.jitter_sigma, size=seq_x.shape)
+            seq_x = seq_x + jitter
+            scaling_factor = np.random.uniform(low=1.0 - self.scale_alpha, high=1.0 + self.scale_alpha, size=(1, seq_x.shape[1]))
+            seq_x = seq_x * scaling_factor
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark
+
+    def __len__(self):
+        available_len = len(self.data_x) - self.seq_len - self.pred_len + 1
+        return max(0, available_len)
+
+    def inverse_transform(self, data):
+        return self.scaler.inverse_transform(data)

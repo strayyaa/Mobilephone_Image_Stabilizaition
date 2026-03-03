@@ -100,6 +100,7 @@ foreach ($pred_len in $pred_lengths) {
       --target $target `
             --check_self_correlation `
             --self_corr_channel 2 `
+            --output_data_print `
             2>&1 | Tee-Object -FilePath $log_file
 
 

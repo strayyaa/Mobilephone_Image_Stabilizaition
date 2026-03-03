@@ -18,13 +18,12 @@ class FrequencyBandConfig:
     residual_ratio: float
     temperature: float
     reflection_pad: int = 32
-    normalize_variance: bool = True
-    use_residual_mix: bool = False
     num_experts: int = 3
     top_k: int = 0
     energy_norm: str = 'density'
 
 
+# 门控网络函数（一个线性层加softmax）
 class _TrainableSoftmaxGate(nn.Module):
     """Linear-gated softmax whose parameters are trained jointly with the model."""
 
@@ -34,18 +33,16 @@ class _TrainableSoftmaxGate(nn.Module):
         self.alpha = nn.Parameter(torch.ones(slots))
         self.beta = nn.Parameter(torch.zeros(slots))
 
-    def forward(self, scores: torch.Tensor) -> torch.Tensor:
+    def forward(self, scores):
         # scores shape [..., slots]
-        scores = torch.nan_to_num(scores, nan=0.0, posinf=1e4, neginf=-1e4)
         alpha = self.alpha.view(*([1] * (scores.ndim - 1)), -1)
         beta = self.beta.view(*([1] * (scores.ndim - 1)), -1)
         logits = alpha * scores + beta
-        logits = torch.nan_to_num(logits, nan=0.0, posinf=1e4, neginf=-1e4)
         logits = logits / self.temperature
         weights = torch.softmax(logits, dim=-1)
-        weights = torch.nan_to_num(weights, nan=0.0, posinf=1.0, neginf=0.0)
         denom = weights.sum(dim=-1, keepdim=True).clamp_min(1e-8)
         return weights / denom
+
 
 
 class TrainableFrequencyMoE(nn.Module):
@@ -61,25 +58,32 @@ class TrainableFrequencyMoE(nn.Module):
         self.top_k = max(0, int(config.top_k))
         self.energy_norm = (config.energy_norm or 'density').lower()
         self.gate = _TrainableSoftmaxGate(self.num_experts, config.temperature)
-        # start energy scaling at zero so initial logits mirror the prior ratios (e.g., 4:3:1)
+        
+        # 能量初始化为0，因为定义了初始值
         self.energy_scale = nn.Parameter(torch.zeros(self.num_experts))
         self.energy_bias = nn.Parameter(torch.zeros(self.num_experts))
+        
+        # 记录每个专家的频段掩码和先验，即每个专家的范围和初始权重
         self._mask_cache: Dict[int, torch.Tensor] = {}
         self._prior_cache: Dict[int, torch.Tensor] = {}
+
         self._dct_cache: Dict[Tuple[int, torch.device], torch.Tensor] = {}
         self._neg_fill = -1e4
 
+    # 默认的频段划分方式
     def _split_indices(self, length: int) -> Tuple[int, int, int]:
         low_idx = max(1, int(length * self.config.low_ratio))
         high_idx = max(low_idx + 1, int(length * self.config.high_ratio))
         cutoff_idx = max(high_idx + 1, int(length * self.config.cutoff_ratio))
         return min(low_idx, length), min(high_idx, length), min(cutoff_idx, length)
 
+    # 默认的频段划分：低频/中频/高频
     def _default_ranges(self, length: int) -> List[Tuple[int, int]]:
         low_idx, high_idx, cutoff_idx = self._split_indices(length)
         ranges = [(0, low_idx), (low_idx, high_idx), (high_idx, cutoff_idx)]
         return [(s, e) for s, e in ranges if e > s]
 
+    # 平均地分配频段
     def _equal_split(self, start: int, end: int, count: int) -> List[Tuple[int, int]]:
         end = max(start + 1, end)
         span = end - start
@@ -93,21 +97,29 @@ class TrainableFrequencyMoE(nn.Module):
         ranges[-1] = (ranges[-1][0], end)
         return ranges
 
+    # 根据频段划分数量，返回每个频段的范围和标签
     def _band_ranges(self, length: int) -> Tuple[List[Tuple[int, int]], List[str]]:
         default_ranges = self._default_ranges(length)
         target = self.num_experts
-        if not default_ranges:
-            ranges = self._equal_split(0, max(1, length), target)
-            return ranges, ['low'] * len(ranges)
+
+        # 若专家数量小于等于默认频段数，则直接返回前N个频段
         if target <= len(default_ranges):
             ranges = default_ranges[:target]
             tags = ['low', 'mid', 'high'][:len(ranges)]
             return ranges, tags
 
+        # 计算每个频段长度，total为总长度
         lengths = [end - start for start, end in default_ranges]
         total = sum(max(0, l) for l in lengths) or 1
+
+        # lengths = [4,3,1]
+        # total = sum(lengths)
+
+        # 为每个频段分配专家数量，remaining为剩余未分配的专家数量
         allocations = [0] * len(default_ranges)
         remaining = target
+
+        # 分配方式：按照比例分配
         for idx, length_val in enumerate(lengths):
             if length_val <= 0:
                 continue
@@ -117,6 +129,8 @@ class TrainableFrequencyMoE(nn.Module):
             remaining -= quota
             if remaining <= 0:
                 break
+        
+        # 若还有剩余专家，循环分配给各频段
         order = sorted(range(len(lengths)), key=lambda i: lengths[i], reverse=True)
         ptr = 0
         while remaining > 0:
@@ -128,6 +142,7 @@ class TrainableFrequencyMoE(nn.Module):
         ranges: List[Tuple[int, int]] = []
         groups: List[str] = []
         tag_pool = ['low', 'mid', 'high']
+        # 根据每个频段的分配数量，划分频段
         for idx_pair, ((start, end), count) in enumerate(zip(default_ranges, allocations)):
             if count <= 0 or end <= start:
                 continue
@@ -135,11 +150,10 @@ class TrainableFrequencyMoE(nn.Module):
             ranges.extend(splits)
             group_label = tag_pool[idx_pair] if idx_pair < len(tag_pool) else tag_pool[-1]
             groups.extend([group_label] * len(splits))
-        if not ranges:
-            ranges = [(0, length)]
-            groups = ['low']
         return ranges, groups
 
+    # 根据每个频段的标签，计算其先验概率分布，即每个专家的初始权重
+    # 保证低频：中频：高频 = 4:3:1，且同一频段内权重相等
     def _build_priors(self, groups: List[str]) -> torch.Tensor:
         ratio_map = {'low': 4.0, 'mid': 3.0, 'high': 1.0}
         counts: Dict[str, int] = {}
@@ -158,6 +172,8 @@ class TrainableFrequencyMoE(nn.Module):
             priors /= total
         return torch.log(priors.clamp_min(1e-6))
 
+    # 获取到频段掩码和先验，即每个专家的范围和初始权重
+    # 若是cache中存在则直接返回，否则计算后存入cache
     def _get_masks(self, spectrum_len: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
         if spectrum_len not in self._mask_cache:
             mask = torch.zeros(self.num_experts, spectrum_len)
@@ -197,67 +213,63 @@ class TrainableFrequencyMoE(nn.Module):
         signal = flat @ mat
         return signal.reshape_as(coeffs)
 
-    def forward(self, inputs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         # inputs shape [B, L, C]
-        orig_dtype = inputs.dtype
-        x = inputs.permute(0, 2, 1).contiguous().to(torch.float32)  # [B, C, L]
+        x = inputs.permute(0, 2, 1).contiguous()  # [B, C, L]
         mean = x.mean(dim=-1, keepdim=True)
         std = x.std(dim=-1, keepdim=True, unbiased=False) + 1e-8
-        if not self.config.normalize_variance:
-            std = torch.ones_like(std)
         normalized = (x - mean) / std
-        normalized = torch.nan_to_num(normalized)
+
+        # 反射填充
         pad = min(self.config.reflection_pad, normalized.shape[-1] // 2)
         if pad > 0:
             normalized = F.pad(normalized, (pad, pad), mode='reflect')
-        normalized = torch.nan_to_num(normalized)
-        length = normalized.shape[-1]
 
+        length = normalized.shape[-1] # [B, C, L]
+
+        # 获取频段掩码和先验，即每个专家的范围和初始权重
         masks, base_logits = self._get_masks(
             spectrum_len=length if self.transform == 'dct' else (length // 2 + 1),
             device=normalized.device,
         )
-        masks = masks.unsqueeze(0).unsqueeze(0)  # [1,1,E,F]
+        masks = masks.unsqueeze(0).unsqueeze(0)  # [1,1,E,F]  E: experts, F: freq长度
         base_logits = base_logits.view(1, 1, -1)
 
         if self.transform == 'fft':
             coeffs = torch.fft.rfft(normalized, dim=-1)
-            masked = coeffs.unsqueeze(2) * masks
+            masked = coeffs.unsqueeze(2) * masks   # [B, C, E, F]
             band_signals = torch.fft.irfft(masked, n=length, dim=-1)
-            energy = (masked.abs() ** 2).sum(dim=-1)   # gated 可以修改
+            energy = (masked.abs() ** 2).sum(dim=-1)   # [B, C, E] 每个专家的能量，即幅值平方和
         else:
             coeffs = self._apply_dct(normalized)
             masked = coeffs.unsqueeze(2) * masks[..., : coeffs.shape[-1]]
             band_signals = self._apply_idct(masked)
             energy = (masked ** 2).sum(dim=-1)
 
-        band_signals = torch.nan_to_num(band_signals)
-        energy = torch.nan_to_num(energy, nan=0.0, posinf=1e12, neginf=0.0)
-        energy = energy.clamp_min(0.0)
-
+        # 计算能量，基于刚才计算的每个专家能量以及初始的能量，alpha、beta初始化是0
         alpha = self.energy_scale.view(1, 1, -1)
         beta = self.energy_bias.view(1, 1, -1)
-        logits = alpha * energy + beta + base_logits
-        logits = torch.nan_to_num(logits, nan=0.0, posinf=1e12, neginf=-1e12)
+        logits = alpha * energy + beta + base_logits # [B, C, E]
+        
         if 0 < self.top_k < self.num_experts:
             top_vals, top_idx = torch.topk(logits, self.top_k, dim=-1)
             mask = torch.zeros_like(logits)
             mask.scatter_(-1, top_idx, 1.0)
             fill = torch.full_like(logits, self._neg_fill)
             logits = torch.where(mask.bool(), logits, fill)
+        
+        # 能量送入门控网络，得到每个专家的权重
         weights = self.gate(logits)
 
         mixed = (band_signals * weights.unsqueeze(-1)).sum(dim=2)
-        mixed = torch.nan_to_num(mixed)
+
         if pad > 0:
             mixed = mixed[..., pad:-pad]
         mixed = mixed[..., : x.shape[-1]]
         output = mixed * std + mean
-        if self.config.use_residual_mix:
-            output = x + self.config.residual_ratio * (output - x)
         output = torch.nan_to_num(output)
-        output = output.permute(0, 2, 1).contiguous().to(orig_dtype)
-        return output, weights.detach().cpu()
+        output = output.permute(0, 2, 1).contiguous()
+        return output
 
 
 class TrainableModalMoE(nn.Module):
@@ -267,22 +279,16 @@ class TrainableModalMoE(nn.Module):
         super().__init__()
         self.gate = _TrainableSoftmaxGate(3, temperature)
 
-    def forward(
-        self,
-        original: torch.Tensor,
-        fft_signal: torch.Tensor,
-        dct_signal: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self,original,fft_signal,dct_signal):
         # tensors shape [B, L, C]
-        orig_dtype = original.dtype
         stack = torch.stack([original, fft_signal, dct_signal], dim=-1).to(torch.float32)  # [B, L, C, 3]
         stack = torch.nan_to_num(stack)
         stats = stack.var(dim=1, unbiased=False)
         weights = self.gate(stats)  # [B, C, 3]
         fused = (stack.permute(0, 2, 1, 3) * weights.unsqueeze(-2)).sum(dim=-1)
         fused = torch.nan_to_num(fused)
-        fused = fused.permute(0, 2, 1).contiguous().to(orig_dtype)
-        return fused, weights.detach().cpu()
+        fused = fused.permute(0, 2, 1).contiguous()
+        return fused
 
 
 class MoEEnhancer(nn.Module):
@@ -296,8 +302,6 @@ class MoEEnhancer(nn.Module):
         frequency_residual_ratio: float,
         temperature: float,
         reflection_pad: int = 32,
-        normalize_variance: bool = True,
-        frequency_use_residual_mix: bool = False,
         frequency_experts: int = 3,
         frequency_top_k: int = 0,
         frequency_energy_norm: str = 'density',
@@ -310,8 +314,6 @@ class MoEEnhancer(nn.Module):
             residual_ratio=frequency_residual_ratio,
             temperature=temperature,
             reflection_pad=reflection_pad,
-            normalize_variance=normalize_variance,
-            use_residual_mix=frequency_use_residual_mix,
             num_experts=frequency_experts,
             top_k=frequency_top_k,
             energy_norm=frequency_energy_norm,
@@ -320,23 +322,8 @@ class MoEEnhancer(nn.Module):
         self.dct_moe = TrainableFrequencyMoE('dct', config)
         self.modal_moe = TrainableModalMoE(temperature)
 
-    def forward(
-        self,
-        batch: torch.Tensor,
-        collect_stats: bool = False,
-    ) -> Tuple[torch.Tensor, List[Dict[str, List[float]]]]:
-        fft_out, fft_weights = self.fft_moe(batch)
-        dct_out, dct_weights = self.dct_moe(batch)
-        fused, modal_weights = self.modal_moe(batch, fft_out, dct_out)
-
-        stats: List[Dict[str, List[float]]] = []
-        if collect_stats:
-            b = batch.shape[0]
-            for idx in range(b):
-                stats.append({
-                    'fft_weights': fft_weights[idx].tolist(),
-                    'dct_weights': dct_weights[idx].tolist(),
-                    'modal_weights': modal_weights[idx].tolist(),
-                })
-        return fused, stats
+    def forward(self, batch: torch.Tensor) -> torch.Tensor:
+        fft_out = self.fft_moe(batch)
+        dct_out = self.dct_moe(batch)
+        return self.modal_moe(batch, fft_out, dct_out)
 

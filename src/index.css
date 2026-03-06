@@ -1,0 +1,63 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 224 29% 8%;
+  --foreground: 210 28% 96%;
+  --card: 224 26% 12%;
+  --card-foreground: 210 24% 96%;
+  --muted: 224 17% 18%;
+  --muted-foreground: 214 14% 70%;
+  --primary: 219 100% 64%;
+  --primary-foreground: 220 20% 98%;
+  --secondary: 227 35% 22%;
+  --secondary-foreground: 216 18% 95%;
+  --accent: 257 100% 70%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 357 100% 67%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 225 20% 24%;
+  --input: 225 20% 24%;
+  --ring: 219 100% 64%;
+  --radius: 0.9rem;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply font-body bg-background text-foreground antialiased;
+  min-height: 100vh;
+  background-image: radial-gradient(circle at 15% -10%, rgba(59, 130, 246, 0.18), transparent 40%),
+    radial-gradient(circle at 80% -20%, rgba(111, 76, 255, 0.2), transparent 35%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.glass-card {
+  backdrop-filter: blur(16px);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 100px;
+}
